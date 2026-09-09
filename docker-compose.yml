@@ -1,0 +1,60 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: triprag-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-triprag}
+      POSTGRES_USER: ${POSTGRES_USER:-triprag}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-triprag}
+      TZ: Asia/Seoul
+    ports:
+      - "${DB_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-triprag} -d ${POSTGRES_DB:-triprag}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: .
+    container_name: triprag-api
+    env_file: .env
+    environment:
+      DB_HOST: db
+    ports:
+      - "${API_PORT:-8080}:8000"
+    volumes:
+      - ./app:/srv/app
+      - ./static:/srv/static
+      - ./ingest:/srv/ingest
+      - ./eval:/srv/eval
+      - ./sql:/srv/sql
+    depends_on:
+      db:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # 수집 전용. 상주하지 않고 필요할 때만:
+  #   docker compose run --rm ingest python -m ingest.fetch_list
+  ingest:
+    build: .
+    env_file: .env
+    environment:
+      DB_HOST: db
+    volumes:
+      - ./ingest:/srv/ingest
+      - ./eval:/srv/eval
+      - ./sql:/srv/sql
+      - ./app:/srv/app
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles: ["tools"]
+    entrypoint: []
+    command: ["python", "-m", "ingest.probe"]
+
+volumes:
+  pgdata:
