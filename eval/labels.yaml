@@ -1,0 +1,320 @@
+# 자동 생성 + 사람 검수용.
+# 눈으로 훑고 틀린 것을 지운 뒤 reviewed: true 로 바꾸세요.
+# 그러면 build_pool 을 다시 돌려도 그 질문은 덮어쓰지 않습니다.
+
+- id: q01
+  q: 비 오는 날 아이랑 갈 만한 실내
+  kind: condition
+  pool_size: 33
+  expect:
+  - id: 2553685
+    title: 수목원테마파크(아이스뮤지엄)
+  - id: 780778
+    title: 이상한나라의 앨리스
+  - id: 2851007
+    title: 바램목장&카페
+  - id: 2751986
+    title: 포레스트 공룡사파리
+  - id: 2751836
+    title: 바이나흐튼 크리스마스박물관
+  reviewed: false
+- id: q02
+  q: 혼자 조용히 걷기 좋은 곳
+  kind: situation
+  pool_size: 33
+  expect:
+  - id: 129071
+    title: 오조마을
+  - id: 2704435
+    title: 하도해변
+  - id: 2796715
+    title: 베릿네오름
+  - id: 2789652
+    title: 순례자의 교회
+  - id: 2779449
+    title: 비밀의 숲
+  - id: 1839801
+    title: '[제주올레 14코스] 저지-한림 올레'
+  - id: 2742373
+    title: 청수곶자왈
+  reviewed: false
+- id: q03
+  q: 강아지 데리고 갈 수 있는 카페
+  kind: condition
+  pool_size: 32
+  expect:
+  - id: 2785334
+    title: 카페리
+  - id: 2850127
+    title: 더리트리브
+  - id: 2854455
+    title: 감따남
+  - id: 2892239
+    title: 볕이드는곳벧디
+  reviewed: false
+- id: q04
+  q: 바다 보면서 커피 마실 곳
+  kind: situation
+  pool_size: 37
+  expect:
+  - id: 2843885
+    title: 바다다
+  - id: 2852520
+    title: 커피스케치
+  - id: 2863660
+    title: 모래비 커피로스터스 앤 베이커리
+  - id: 2859090
+    title: 뷰스트
+  - id: 2836825
+    title: 카페루시아 본점
+  - id: 2783440
+    title: 에오마르
+  - id: 2664574
+    title: 허니문하우스
+  - id: 2877847
+    title: 머문
+  reviewed: false
+- id: q05
+  q: 비 올 때 시간 때우기
+  kind: situation
+  pool_size: 58
+  expect:
+  - id: 2609373
+    title: 9.81 파크 제주
+  - id: 127052
+    title: 엉또폭포
+  reviewed: false
+- id: q06
+  q: 아이랑 체험할 수 있는 박물관
+  kind: condition
+  pool_size: 28
+  expect:
+  - id: 2472824
+    title: 넥슨컴퓨터박물관
+  - id: 596964
+    title: 세계자동차&피아노 박물관
+  - id: 2661407
+    title: 제주항공우주박물관
+  - id: 696841
+    title: 테디베어하우스 테지움
+  - id: 1737497
+    title: 초콜릿랜드
+  - id: 2905116
+    title: 제주과학탐구체험관
+  reviewed: false
+- id: q07
+  q: 제주 흑돼지 맛집
+  kind: condition
+  pool_size: 36
+  expect:
+  - id: 1019491
+    title: 흑돈가 제주
+  - id: 2831941
+    title: 삼미흑돼지 중문점
+  - id: 2844094
+    title: 화고 흑돼지 신시가지점
+  - id: 2755458
+    title: 중문칠돈가
+  - id: 2755444
+    title: 난드르바당
+  - id: 2899428
+    title: 흑본오겹 함덕점
+  - id: 2798036
+    title: 숙성도 제주본점
+  - id: 2763767
+    title: 바다를본돼지
+  reviewed: false
+- id: q08
+  q: 해산물 정식 잘하는 집
+  kind: condition
+  pool_size: 32
+  expect:
+  - id: 2852232
+    title: 해녀의집
+  - id: 2666735
+    title: 해녀의 부엌
+  - id: 2783304
+    title: 갈치왕
+  - id: 2858485
+    title: 동도원
+  - id: 2758924
+    title: 미스칠
+  - id: 404209
+    title: 어장군
+  - id: 2708692
+    title: 색달해녀의집
+  reviewed: false
+- id: q09
+  q: 일출 보기 좋은 곳
+  kind: situation
+  pool_size: 42
+  expect:
+  - id: 2778905
+    title: 해맞이해안로
+  - id: 1965800
+    title: 높은오름
+  - id: 1918413
+    title: 지미봉
+  reviewed: false
+- id: q10
+  q: 밤에 야경 보기 좋은 곳
+  kind: situation
+  pool_size: 37
+  expect:
+  - id: 2738705
+    title: 용담해안도로
+  - id: 879234
+    title: 새연교
+  - id: 2479639
+    title: 제주불빛정원
+  - id: 1925362
+    title: 어영공원
+  reviewed: false
+- id: q11
+  q: 숲길 산책하기 좋은 곳
+  kind: situation
+  pool_size: 34
+  expect:
+  - id: 2738730
+    title: 화순곶자왈 생태탐방숲길
+  - id: 2948051
+    title: 산양큰엉곶
+  - id: 2779449
+    title: 비밀의 숲
+  - id: 1898484
+    title: 붉은오름자연휴양림
+  - id: 1839801
+    title: '[제주올레 14코스] 저지-한림 올레'
+  - id: 126454
+    title: 사라봉공원
+  reviewed: false
+- id: q12
+  q: 초보자도 오르기 쉬운 오름
+  kind: situation
+  pool_size: 29
+  expect:
+  - id: 2713585
+    title: 왕이메오름
+  - id: 129699
+    title: 금오름
+  - id: 2765234
+    title: 궷물오름
+  - id: 2740127
+    title: 느지리오름
+  reviewed: false
+- id: q13
+  q: 물놀이 할 수 있는 해수욕장
+  kind: situation
+  pool_size: 29
+  expect:
+  - id: 127490
+    title: 협재해수욕장
+  - id: 126451
+    title: 함덕해수욕장 (함덕 서우봉 해변)
+  - id: 126449
+    title: 중문색달해수욕장
+  - id: 2704435
+    title: 하도해변
+  reviewed: false
+- id: q14
+  q: 날씨 상관없이 즐길 수 있는 실내 체험
+  kind: condition
+  pool_size: 40
+  expect:
+  - id: 2553685
+    title: 수목원테마파크(아이스뮤지엄)
+  - id: 2751986
+    title: 포레스트 공룡사파리
+  - id: 2905116
+    title: 제주과학탐구체험관
+  - id: 2609373
+    title: 9.81 파크 제주
+  - id: 780778
+    title: 이상한나라의 앨리스
+  - id: 2738653
+    title: 토토아뜰리에
+  reviewed: false
+- id: q15
+  q: 제주 전통 문화를 볼 수 있는 곳
+  kind: situation
+  pool_size: 47
+  expect:
+  - id: 130474
+    title: 제주민속촌
+  - id: 770036
+    title: 성산포 해녀물질공연장
+  - id: 126471
+    title: 성읍민속마을
+  - id: 127860
+    title: 금능석물원
+  - id: 128326
+    title: 신풍리체험휴양마을
+  reviewed: false
+- id: q16
+  q: 사진 찍기 좋은 분위기 있는 카페
+  kind: condition
+  pool_size: 36
+  expect:
+  - id: 2851090
+    title: 볼스카페
+  - id: 2844044
+    title: 카페텐저린
+  - id: 2802732
+    title: 카페 귤꽃다락
+  - id: 2829786
+    title: 비케이브
+  - id: 2852374
+    title: 그러므로 파트2 (part2)
+  - id: 2715354
+    title: 새빌
+  - id: 2877634
+    title: 랜딩커피
+  - id: 2892282
+    title: 영국찻집
+  reviewed: false
+- id: q17
+  q: 노약자와 함께 가기 편한 곳
+  kind: situation
+  pool_size: 35
+  expect:
+  - id: 2948051
+    title: 산양큰엉곶
+  - id: 2783440
+    title: 에오마르
+  reviewed: false
+- id: q18
+  q: 커플이 갈 만한 이색 데이트 장소
+  kind: situation
+  pool_size: 34
+  expect:
+  - id: 2715354
+    title: 새빌
+  - id: 2858473
+    title: 인스밀
+  - id: 2738714
+    title: 대포포구
+  - id: 2774895
+    title: 목장카페드르쿰다
+  - id: 2738709
+    title: 제주카약올레
+  - id: 2516416
+    title: 낙타트레킹
+  - id: 2498698
+    title: 제주빅볼랜드
+  - id: 2609373
+    title: 9.81 파크 제주
+  reviewed: false
+- id: q19
+  q: 천지연폭포
+  kind: proper
+  pool_size: 30
+  expect: []
+  reviewed: false
+- id: q20
+  q: 아이스뮤지엄 얼음 조각
+  kind: proper
+  pool_size: 39
+  expect:
+  - id: 2553685
+    title: 수목원테마파크(아이스뮤지엄)
+  reviewed: false
