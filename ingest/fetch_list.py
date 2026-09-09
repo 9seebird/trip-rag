@@ -1,0 +1,129 @@
+"""목록 수집 — 유형별로 전부 받아 places 에 넣는다. overview 는 비워 둔다.
+
+100건씩 받으므로 제주 전체(음식점 포함)도 40회 안쪽이면 끝난다.
+같은 걸 다시 돌려도 안전하다(upsert). modifiedtime 이 바뀌면 갱신된다.
+
+    docker compose run --rm ingest python -m ingest.fetch_list
+    docker compose run --rm ingest python -m ingest.fetch_list --types 12,14
+"""
+import argparse
+import time
+
+from .config import AREA_CODE, CONTENT_TYPES
+from .db import connect
+from .tourapi import call, items, QuotaExceeded
+
+LIST_OP = "areaBasedList2"
+
+UPSERT = """
+INSERT INTO places (content_id, content_type, title, addr, addr_detail,
+                    area_code, sigungu_code, cat1, cat2, cat3,
+                    lat, lon, image_url, thumb_url, tel,
+                    priority, list_modified)
+VALUES (%(content_id)s, %(content_type)s, %(title)s, %(addr)s, %(addr_detail)s,
+        %(area_code)s, %(sigungu_code)s, %(cat1)s, %(cat2)s, %(cat3)s,
+        %(lat)s, %(lon)s, %(image_url)s, %(thumb_url)s, %(tel)s,
+        %(priority)s, %(list_modified)s)
+ON CONFLICT (content_id) DO UPDATE SET
+  title        = EXCLUDED.title,
+  addr         = EXCLUDED.addr,
+  addr_detail  = EXCLUDED.addr_detail,
+  cat1 = EXCLUDED.cat1, cat2 = EXCLUDED.cat2, cat3 = EXCLUDED.cat3,
+  lat = EXCLUDED.lat, lon = EXCLUDED.lon,
+  image_url = EXCLUDED.image_url, thumb_url = EXCLUDED.thumb_url,
+  tel = EXCLUDED.tel,
+  priority = EXCLUDED.priority,
+  -- 원본이 갱신됐으면 상세를 다시 받아야 한다
+  detail_status = CASE WHEN places.list_modified IS DISTINCT FROM EXCLUDED.list_modified
+                       THEN 'pending' ELSE places.detail_status END,
+  list_modified = EXCLUDED.list_modified
+"""
+
+
+def num(v):
+    try:
+        return float(v) if v not in (None, "") else None
+    except (TypeError, ValueError):
+        return None
+
+
+def as_int(v):
+    try:
+        return int(v) if v not in (None, "") else None
+    except (TypeError, ValueError):
+        return None
+
+
+def row_of(it, priority):
+    return dict(
+        content_id=int(it["contentid"]),
+        content_type=int(it["contenttypeid"]),
+        title=(it.get("title") or "").strip(),
+        addr=(it.get("addr1") or "").strip() or None,
+        addr_detail=(it.get("addr2") or "").strip() or None,
+        area_code=as_int(it.get("areacode")),
+        sigungu_code=as_int(it.get("sigungucode")),
+        cat1=it.get("cat1") or None,
+        cat2=it.get("cat2") or None,
+        cat3=it.get("cat3") or None,
+        lat=num(it.get("mapy")),          # mapy = 위도
+        lon=num(it.get("mapx")),          # mapx = 경도
+        image_url=it.get("firstimage") or None,
+        thumb_url=it.get("firstimage2") or None,
+        tel=(it.get("tel") or "").strip() or None,
+        priority=priority,
+        list_modified=it.get("modifiedtime") or None,
+    )
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--types", default="", help="쉼표로. 비우면 전부")
+    ap.add_argument("--area", type=int, default=AREA_CODE)
+    ap.add_argument("--rows", type=int, default=100)
+    args = ap.parse_args()
+
+    types = [int(t) for t in args.types.split(",") if t.strip()] or list(CONTENT_TYPES)
+
+    with connect() as conn:
+        total_saved = 0
+        for ctype in types:
+            name, priority = CONTENT_TYPES.get(ctype, (str(ctype), 5))
+            page, saved, total = 1, 0, None
+            while True:
+                try:
+                    body = call(conn, LIST_OP, {
+                        "numOfRows": args.rows, "pageNo": page,
+                        "areaCode": args.area, "contentTypeId": ctype,
+                        "arrange": "C",
+                    })
+                except QuotaExceeded as e:
+                    print(f"\n중단: {e}")
+                    return
+                if total is None:
+                    total = int(body.get("totalCount") or 0)
+                    print(f"[{ctype} {name}] 총 {total}건")
+                rows = items(body)
+                if not rows:
+                    break
+                with conn.cursor() as cur:
+                    for it in rows:
+                        try:
+                            cur.execute(UPSERT, row_of(it, priority))
+                            saved += 1
+                        except Exception as e:
+                            print(f"  ! {it.get('contentid')} {it.get('title')}: {e}")
+                print(f"  {saved}/{total}")
+                if saved >= total or len(rows) < args.rows:
+                    break
+                page += 1
+                time.sleep(0.2)
+            total_saved += saved
+
+        print(f"\n합계 {total_saved}건 저장")
+        for r in conn.execute("SELECT * FROM ingest_progress").fetchall():
+            print("  ", dict(r))
+
+
+if __name__ == "__main__":
+    main()
