@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>trip-rag — 제주 상황 검색</title>
+<style>
+  :root{
+    --bg:#faf9f7; --card:#fff; --ink:#1c1b19; --muted:#6b6862; --line:#e5e2dc;
+    --accent:#2f6f4f; --accent-soft:#eaf3ee; --up:#b45309; --up-soft:#fdf3e3;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Pretendard","Malgun Gothic",sans-serif}
+  .wrap{max-width:1120px;margin:0 auto;padding:32px 20px 80px}
+  header h1{font-size:22px;margin:0 0 6px;letter-spacing:-.02em}
+  header p{margin:0 0 22px;color:var(--muted);font-size:14px}
+  .searchbar{display:flex;gap:8px;margin-bottom:12px}
+  input[type=text]{flex:1;padding:13px 15px;border:1px solid var(--line);border-radius:10px;
+    background:var(--card);font-size:15px;font-family:inherit;color:var(--ink)}
+  input[type=text]:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
+  button{padding:13px 20px;border:0;border-radius:10px;background:var(--accent);color:#fff;
+    font-size:15px;font-family:inherit;cursor:pointer;white-space:nowrap}
+  button:disabled{opacity:.55;cursor:default}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px}
+  .chip{padding:6px 12px;border:1px solid var(--line);border-radius:20px;background:var(--card);
+    font-size:13px;cursor:pointer;color:var(--muted)}
+  .chip:hover{border-color:var(--accent);color:var(--accent)}
+  .controls{display:flex;flex-wrap:wrap;gap:16px;align-items:center;padding:12px 14px;
+    background:var(--card);border:1px solid var(--line);border-radius:10px;margin-bottom:16px;
+    font-size:13.5px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{background:transparent;color:var(--muted);padding:7px 13px;font-size:13px;
+    border-radius:0}
+  .seg button.on{background:var(--accent);color:#fff}
+  label.sw{display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:var(--muted)}
+  .cond{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;min-height:0}
+  .tag{font-size:12px;padding:3px 9px;border-radius:6px;background:var(--accent-soft);
+    color:var(--accent);border:1px solid #cfe3d7}
+  .tag.off{background:#f4f2ee;color:var(--muted);border-color:var(--line)}
+  .meta{font-size:13px;color:var(--muted);margin-bottom:16px;min-height:20px}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media(max-width:820px){.cols{grid-template-columns:1fr}}
+  .col h2{font-size:14px;margin:0 0 4px;letter-spacing:-.01em}
+  .col .sub{font-size:12.5px;color:var(--muted);margin:0 0 12px}
+  .card{display:flex;gap:12px;background:var(--card);border:1px solid var(--line);
+    border-radius:10px;padding:12px;margin-bottom:8px;position:relative}
+  .card.new{border-color:var(--accent);background:var(--accent-soft)}
+  .card.up{border-color:var(--up);background:var(--up-soft)}
+  .thumb{width:64px;height:64px;border-radius:8px;object-fit:cover;background:#eee;flex:none}
+  .thumb.none{display:flex;align-items:center;justify-content:center;color:#bbb;font-size:11px}
+  .card h3{margin:0 0 3px;font-size:14.5px;font-weight:600;letter-spacing:-.01em}
+  .badge{display:inline-block;font-size:11px;padding:1px 6px;border-radius:4px;
+    background:#f0eee9;color:var(--muted);margin-left:6px;vertical-align:1px}
+  .badge.in{background:#e7eef7;color:#2b5a8c}
+  .badge.out{background:#f0f3e7;color:#5c7030}
+  .card p{margin:3px 0 0;font-size:12.5px;color:var(--muted);
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .score{font-size:11.5px;color:var(--muted);margin-top:4px;font-variant-numeric:tabular-nums}
+  .move{font-weight:600;color:var(--up)}
+  .empty{padding:28px 14px;text-align:center;color:var(--muted);font-size:13.5px;
+    border:1px dashed var(--line);border-radius:10px;background:var(--card)}
+  .note{margin-top:22px;padding:14px 16px;border-left:3px solid var(--accent);
+    background:var(--accent-soft);border-radius:0 8px 8px 0;font-size:13.5px}
+  .note b{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>제주 상황 검색</h1>
+    <p>같은 질문을 두 방식에 각각 넣고 결과를 나란히 놓습니다. 장소 879건.</p>
+  </header>
+
+  <div class="searchbar">
+    <input type="text" id="q" placeholder="비 오는 날 아이랑 갈 만한 실내" autocomplete="off">
+    <button id="go">검색</button>
+  </div>
+  <div class="chips" id="chips"></div>
+
+  <div class="controls">
+    <span style="color:var(--muted)">비교</span>
+    <span class="seg" id="mode">
+      <button data-m="keyword" class="on">키워드 ↔ 의미</button>
+      <button data-m="rerank">의미 ↔ 리랭커</button>
+    </span>
+    <label class="sw"><input type="checkbox" id="filters" checked> 조건 필터 사용</label>
+  </div>
+
+  <div class="cond" id="cond"></div>
+  <div class="meta" id="meta"></div>
+
+  <div class="cols">
+    <div class="col">
+      <h2 id="lh">키워드 검색</h2>
+      <p class="sub" id="ls">낱말이 제목·소개글에 실제로 들어 있는지</p>
+      <div id="left"></div>
+    </div>
+    <div class="col">
+      <h2 id="rh">의미 검색</h2>
+      <p class="sub" id="rs">질문을 벡터로 바꿔 뜻이 가까운 것을</p>
+      <div id="right"></div>
+    </div>
+  </div>
+
+  <div class="note" id="note" hidden></div>
+</div>
+
+<script>
+const EXAMPLES = [
+  "비 오는 날 아이랑 갈 만한 실내",
+  "혼자 조용히 걷기 좋은 곳",
+  "강아지 데리고 갈 수 있는 곳",
+  "바다 보면서 커피 마실 곳",
+  "비 올 때 시간 때우기",
+  "제주 흑돼지 맛집",
+];
+const HEAD = {
+  keyword: [["키워드 검색","낱말이 제목·소개글에 실제로 들어 있는지"],
+            ["의미 검색","질문을 벡터로 바꿔 뜻이 가까운 것을"]],
+  rerank:  [["의미 검색만","벡터 거리 순서 그대로"],
+            ["의미 검색 + 리랭커","질문과 문서를 같이 읽고 다시 줄세움"]],
+};
+const $ = s => document.querySelector(s);
+let mode = "keyword";
+
+EXAMPLES.forEach(t => {
+  const b = document.createElement("span");
+  b.className = "chip"; b.textContent = t;
+  b.onclick = () => { $("#q").value = t; run(); };
+  $("#chips").appendChild(b);
+});
+document.querySelectorAll("#mode button").forEach(b => {
+  b.onclick = () => {
+    mode = b.dataset.m;
+    document.querySelectorAll("#mode button").forEach(x => x.classList.toggle("on", x === b));
+    if ($("#q").value.trim()) run();
+  };
+});
+
+function esc(s){ return (s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function card(r, flag){
+  const img = r.image
+    ? `<img class="thumb" src="${r.image}" alt="" loading="lazy"
+         onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'thumb none',textContent:'이미지 없음'}))">`
+    : `<div class="thumb none">이미지 없음</div>`;
+  const inout = r.indoor === true ? `<span class="badge in">실내</span>`
+              : r.indoor === false ? `<span class="badge out">실외</span>` : "";
+  let score;
+  if ("rerank_score" in r){
+    const moved = r.was_rank - r.rank;
+    score = `관련도 ${r.rerank_score.toFixed(3)}`
+      + (moved > 0 ? ` · <span class="move">${r.was_rank}위 → ${r.rank}위</span>` : ` · ${r.was_rank}위 유지`);
+  } else if ("similarity" in r){
+    score = `유사도 ${r.similarity.toFixed(3)}`;
+  } else {
+    score = `일치 낱말 ${r.hits}개`;
+  }
+  return `<div class="card${flag ? " " + flag : ""}">
+    ${img}
+    <div style="min-width:0">
+      <h3>${esc(r.title)}<span class="badge">${esc(r.type)}</span>${inout}</h3>
+      <p>${esc(r.addr || "")}</p>
+      <p>${esc(r.snippet || "")}</p>
+      <div class="score">${score}</div>
+    </div>
+  </div>`;
+}
+
+const FIELD_KO = {indoor:"실내/실외", pet:"반려동물", baby:"아이 동반", types:"유형", area:"지역"};
+
+async function run(){
+  const q = $("#q").value.trim();
+  if(!q) return;
+  $("#go").disabled = true;
+  $("#meta").textContent = "검색 중…";
+  $("#note").hidden = true;
+  try{
+    const url = `/api/search?q=${encodeURIComponent(q)}&limit=8&compare=${mode}`
+              + `&filters=${$("#filters").checked}`;
+    const res = await fetch(url);
+    if(!res.ok) throw new Error(await res.text());
+    const d = await res.json();
+
+    const [[lh,ls],[rh,rs]] = HEAD[mode];
+    $("#lh").textContent = lh; $("#ls").textContent = ls;
+    $("#rh").textContent = rh; $("#rs").textContent = rs;
+
+    $("#cond").innerHTML = (d.extracted || []).map(w =>
+      `<span class="tag">${esc(w.label)} ← "${esc(w.matched)}"</span>`).join("")
+      + (d.dropped_filters || []).map(f =>
+      `<span class="tag off">${FIELD_KO[f]||f} 조건은 결과가 없어 해제</span>`).join("");
+
+    const L = d[d.left_key] || [], R = d[d.right_key] || [];
+    const onlyR = new Set(d.only_in_right || []);
+    $("#left").innerHTML = L.length ? L.map(r => card(r)).join("")
+      : `<div class="empty">낱말이 하나도 안 걸렸습니다.<br>키워드 검색으로는 못 찾는 질문입니다.</div>`;
+    $("#right").innerHTML = R.length
+      ? R.map(r => card(r, mode === "rerank"
+          ? (r.was_rank - r.rank > 0 ? "up" : "")
+          : (onlyR.has(r.content_id) ? "new" : ""))).join("")
+      : `<div class="empty">결과 없음</div>`;
+
+    const t = d.took_ms || {};
+    $("#meta").textContent = `낱말 [${(d.tokens||[]).join(", ")}]`
+      + ` · ${lh} ${L.length}건 ${t[d.left_key]||0}ms`
+      + ` · ${rh} ${R.length}건 ${t[d.right_key]||0}ms`
+      + ` · 겹침 ${d.overlap}건`;
+
+    if(mode === "rerank"){
+      const moved = R.filter(r => r.was_rank - r.rank > 0).length;
+      const newly = R.filter(r => r.was_rank > 8).length;
+      $("#note").innerHTML = `리랭커가 <b>${moved}곳</b>의 순위를 올렸고, `
+        + `그중 <b>${newly}곳</b>은 벡터 검색 상위 8위 밖에 있던 것입니다.`;
+      $("#note").hidden = false;
+    } else if(onlyR.size){
+      $("#note").innerHTML = `의미 검색에만 나온 장소 <b>${onlyR.size}곳</b>(초록 카드). `
+        + `키워드로는 닿지 않는 결과입니다.`;
+      $("#note").hidden = false;
+    }
+  }catch(e){
+    $("#meta").textContent = "오류: " + e.message;
+  }finally{
+    $("#go").disabled = false;
+  }
+}
+$("#go").onclick = run;
+$("#filters").onchange = () => { if($("#q").value.trim()) run(); };
+$("#q").addEventListener("keydown", e => { if(e.key === "Enter") run(); });
+</script>
+</body>
+</html>
