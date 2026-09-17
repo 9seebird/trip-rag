@@ -45,13 +45,27 @@ LIMIT %s
 """
 
 
-def yn(v):
-    """'가능' / '불가' / '없음' 같은 한국어 값을 참·거짓으로. 애매하면 None."""
-    if not v:
+def yn(v, absent_is_false=True):
+    """'가능' / '불가' / '없음' / '1' / '0' 같은 값을 참·거짓으로. 애매하면 None.
+
+    absent_is_false=False 는 '없음' 을 거짓이 아니라 모름으로 본다.
+    유모차 대여가 '없음' 이라고 아이랑 못 가는 곳은 아니다. 이걸 거짓으로 넣으면
+    '아이랑' 조건이 유모차 대여 안 하는 곳을 전부 빼 버린다 (search._where 는 거짓만 뺀다).
+    음식점 kidsfacility 는 '0'/'1' 로 온다.
+    """
+    if v is None:
         return None
     s = str(v).replace(" ", "")
-    if any(k in s for k in ("불가", "없음", "안됨", "미가능", "불허")):
+    if not s:
+        return None
+    if s in ("1", "Y", "y"):
+        return True
+    if s in ("0", "N", "n"):
+        return False if absent_is_false else None
+    if any(k in s for k in ("불가", "안됨", "미가능", "불허", "금지")):
         return False
+    if "없음" in s:
+        return False if absent_is_false else None
     if any(k in s for k in ("가능", "있음", "동반", "허용", "무료", "대여")):
         return True
     return None
@@ -75,7 +89,7 @@ def save(conn, cid, ctype, d):
            WHERE content_id = %s""",
         (json.dumps({k: v for k, v in d.items() if v not in (None, "")}, ensure_ascii=False),
          g("usetime"), g("restdate"), g("parking"), g("usefee"), g("infocenter"), g("menu"),
-         yn(d.get(m.get("pet", ""))), yn(d.get(m.get("baby", ""))),
+         yn(d.get(m.get("pet", ""))), yn(d.get(m.get("baby", "")), absent_is_false=False),
          cid),
     )
 
@@ -128,12 +142,14 @@ def main():
                     save(conn, cid, r["content_type"], d[0])
                     done += 1
                 else:
+                    print(f"  빈 응답 {cid} {r['title']}")
                     conn.execute("UPDATE places SET intro_status='failed',"
                                  " intro_tries=intro_tries+1 WHERE content_id=%s", (cid,))
             except QuotaExceeded as e:
                 print(f"\n한도 도달로 중단: {e}")
                 break
-            except TourApiError:
+            except TourApiError as e:
+                print(f"  실패 {cid} {r['title']} → {e}")
                 conn.execute("UPDATE places SET intro_status='failed',"
                              " intro_tries=intro_tries+1 WHERE content_id=%s", (cid,))
             if i % 100 == 0 or i == len(rows):

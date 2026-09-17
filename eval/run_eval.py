@@ -16,7 +16,7 @@ import time
 import yaml
 
 from app.extract import extract
-from app.search import keyword_search, vector_candidates, apply_rerank
+from app.search import keyword_search, vector_candidates, apply_rerank, filtered_candidates
 from ingest.config import EMBED_MODEL
 from ingest.db import connect
 
@@ -32,13 +32,14 @@ def make_configs(conn, available_models):
 
     cfg["키워드만"] = lambda q: [r["content_id"] for r in keyword_search(conn, q, 10)]
     cfg["벡터만"] = lambda q: [r["content_id"] for r in vector_candidates(conn, q, 10)]
+    # 조건 필터가 붙은 설정은 화면과 같은 경로(filtered_candidates)를 탄다. 필터 완화까지 포함.
     cfg["벡터+조건필터"] = lambda q: [
-        r["content_id"] for r in vector_candidates(conn, q, 10, extract(q)["filters"])]
+        r["content_id"] for r in filtered_candidates(conn, q, 10, extract(q)["filters"])[0]]
     cfg["벡터+리랭커"] = lambda q: [
         r["content_id"] for r in apply_rerank(conn, q, vector_candidates(conn, q, 30), 10)]
     cfg["벡터+조건필터+리랭커"] = lambda q: [
         r["content_id"] for r in apply_rerank(
-            conn, q, vector_candidates(conn, q, 30, extract(q)["filters"]), 10)]
+            conn, q, filtered_candidates(conn, q, 30, extract(q)["filters"])[0], 10)]
 
     # 제목 접두 대조군 (build_index --no-header --variant noheader 로 만들어 둔 경우에만)
     noheader = f"{EMBED_MODEL}#noheader"

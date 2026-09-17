@@ -51,17 +51,28 @@ def tokens(q):
 
 
 def _where(f):
+    """조건 → SQL.
+
+    파생·수집값(indoor, pet_allowed)은 **'아니다'로 확인된 것만 뺀다.**
+    값이 비어 있는 곳까지 빼면, 아직 수집 안 한 컬럼에 필터를 거는 순간 결과가 0건이 된다.
+    (2차 평가 q01·q03·q06 — detailIntro2 를 받기 전이라 baby_ok·pet_allowed 가 전부 NULL 이었다)
+    모르는 건 남겨 두고 순위는 의미 검색·리랭커에 맡긴다.
+
+    지역·유형은 원본에 항상 있는 값이라 그대로 건다.
+
+    '아이 동반'(baby)은 **거르지 않는다.** 재료인 baby_ok 가 '유모차 대여/동반 가능' 이라서다.
+    유모차를 못 끌어도 아이랑 가는 체험 박물관은 많다. 4차 평가에서 이 조건으로 거르자
+    q06(아이랑 체험할 수 있는 박물관)의 정답이 빠졌다. 그래서 조건은 뽑되 결과 카드에 유모차 정보만 보여준다.
+    """
     where, params = [], {}
     if f.get("area"):
         where.append("p.area_code = %(area)s"); params["area"] = f["area"]
     if f.get("types"):
         where.append("p.content_type = ANY(%(types)s)"); params["types"] = list(f["types"])
     if f.get("indoor") is not None:
-        where.append("p.indoor = %(indoor)s"); params["indoor"] = f["indoor"]
+        where.append("p.indoor IS DISTINCT FROM %(not_indoor)s"); params["not_indoor"] = not f["indoor"]
     if f.get("pet"):
-        where.append("p.pet_allowed IS TRUE")
-    if f.get("baby"):
-        where.append("p.baby_ok IS TRUE")
+        where.append("p.pet_allowed IS NOT FALSE")
     return where, params
 
 
@@ -76,6 +87,8 @@ def _row(r):
         "image": r.get("image_url"),
         "lat": r.get("lat"), "lon": r.get("lon"),
         "indoor": r.get("indoor"),
+        "baby_ok": r.get("baby_ok"),          # 유모차 가능/불가 — 거르지 않고 표시만
+        "pet_allowed": r.get("pet_allowed"),
         "snippet": (ov[:160] + "…") if len(ov) > 160 else ov,
     }
 
@@ -153,6 +166,30 @@ def strip_private(items):
     return [{k: v for k, v in i.items() if not k.startswith("_")} for i in items]
 
 
+HINT_ONLY = ("baby",)                 # 뽑기는 하되 SQL 로 거르지 않는 조건
+SOFT_FILTERS = ("pet", "indoor", "types")   # 먼저 푸는 순서 (약한 조건부터)
+MIN_CANDIDATES = 3
+
+
+def filtered_candidates(conn, q, pool=30, filters=None, model=EMBED_MODEL):
+    """조건 필터 + 벡터 검색. 후보가 말라붙으면 약한 조건부터 하나씩 푼다.
+
+    화면(run)과 평가(run_eval)가 **반드시 이 함수 하나를 같이 탄다.**
+    2차 평가에서는 평가가 이 단계를 건너뛰고 필터를 직접 걸어 실제보다 불리하게 쟀다.
+    """
+    filters = dict(filters or {})
+    dropped = []
+    cand = vector_candidates(conn, q, pool, filters, model)
+    for soft in SOFT_FILTERS:
+        if len(cand) >= MIN_CANDIDATES:
+            break
+        if filters.get(soft) not in (None, False):
+            filters.pop(soft, None)
+            dropped.append(soft)
+            cand = vector_candidates(conn, q, pool, filters, model)
+    return cand, filters, dropped
+
+
 def run(conn, q, limit=8, compare="keyword", use_filters=True, pool=30, overrides=None):
     """compare='keyword' → 키워드 vs 의미 / compare='rerank' → 의미 vs 의미+리랭커"""
     ex = extract(q)
@@ -160,24 +197,16 @@ def run(conn, q, limit=8, compare="keyword", use_filters=True, pool=30, override
     if overrides:
         filters.update({k: v for k, v in overrides.items() if v is not None})
 
-    dropped = []
     t0 = time.time()
-    cand = vector_candidates(conn, q, pool, filters)
-    # 조건이 너무 세서 후보가 말라붙으면 약한 조건부터 푼다.
-    for soft in ("pet", "baby", "indoor", "types"):
-        if len(cand) >= 3:
-            break
-        if filters.get(soft) not in (None, False):
-            filters.pop(soft, None)
-            dropped.append(soft)
-            cand = vector_candidates(conn, q, pool, filters)
+    cand, filters, dropped = filtered_candidates(conn, q, pool, filters)
     t1 = time.time()
 
     out = {
         "query": q,
         "tokens": tokens(q),
         "extracted": ex["why"],
-        "filters": {k: v for k, v in filters.items() if v not in (None, False)},
+        "filters": {k: v for k, v in filters.items() if v not in (None, False) and k not in HINT_ONLY},
+        "hints": [k for k in HINT_ONLY if filters.get(k)],
         "dropped_filters": dropped,
         "took_ms": {},
     }
