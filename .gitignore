@@ -7,3 +7,6 @@ data/
 backup*.sql
 *.sql.gz
 eval/results.md.bak
+logs/
+*.dump
+_to_delete/

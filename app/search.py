@@ -90,6 +90,13 @@ def _row(r):
         "baby_ok": r.get("baby_ok"),          # 유모차 가능/불가 — 거르지 않고 표시만
         "pet_allowed": r.get("pet_allowed"),
         "snippet": (ov[:160] + "…") if len(ov) > 160 else ov,
+        "area_code": r.get("area_code"),
+        # 상세 보기용 (서비스 화면). 비교 화면은 안 쓴다.
+        "overview": ov,
+        "usetime": r.get("usetime"), "restdate": r.get("restdate"),
+        "parking": r.get("parking"), "usefee": r.get("usefee"),
+        "tel": r.get("tel") or r.get("infocenter"), "menu": r.get("menu"),
+        "homepage": r.get("homepage"),
     }
 
 
@@ -232,3 +239,28 @@ def run(conn, q, limit=8, compare="keyword", use_filters=True, pool=30, override
     out["only_in_right"] = sorted(right - left)
     out["overlap"] = len(left & right)
     return out
+
+
+def find(conn, q, limit=12, pool=30, overrides=None, use_rerank=True):
+    """서비스 화면용: 조건 필터 + 벡터 + 리랭커 한 줄. 비교용 대조군(키워드)은 돌리지 않는다."""
+    ex = extract(q)
+    filters = dict(ex["filters"])
+    if overrides:
+        filters.update({k: v for k, v in overrides.items() if v is not None})
+    t0 = time.time()
+    cand, filters, dropped = filtered_candidates(conn, q, pool, filters)
+    items = cand[:limit]
+    if use_rerank and cand:
+        try:
+            items = apply_rerank(conn, q, cand, limit)
+        except Exception:                 # 리랭커가 죽어도 벡터 순서로는 보여준다
+            items = cand[:limit]
+    return {
+        "query": q,
+        "extracted": ex["why"],
+        "filters": {k: v for k, v in filters.items() if v not in (None, False) and k not in HINT_ONLY},
+        "hints": [k for k in HINT_ONLY if filters.get(k)],
+        "dropped_filters": dropped,
+        "items": strip_private(items),
+        "took_ms": int((time.time() - t0) * 1000),
+    }

@@ -33,13 +33,14 @@ def count(conn, ctype, area=None):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--by-area", action="store_true", help="지역별로도 센다 (85회 소모)")
+    ap.add_argument("--by-area", action="store_true", help="17개 지역 전부 센다 (85회 소모)")
+    ap.add_argument("--areas", default="", help="지역코드 쉼표로. 예: 6,32 (지역당 5회). 예: 6=부산 32=강원")
     args = ap.parse_args()
 
     with connect() as conn:
         print(f"오늘(KST) 사용 {tour_used_today(conn)}/{TOUR_DAILY_LIMIT}\n")
         try:
-            if not args.by_area:
+            if not args.by_area and not args.areas:
                 print(f"{'유형':<12}{'전국 건수':>10}")
                 print("-" * 24)
                 total = 0
@@ -53,11 +54,14 @@ def main():
                 print(f"\n일 1,000회 기준 상세 수집에 약 {total/1000:.0f}일")
                 print(f"음식점 제외 시 상세 수집 대상만 다시 계산하려면 위 표에서 빼서 보세요.")
             else:
+                picked = ([int(a) for a in args.areas.split(",") if a.strip()]
+                          if args.areas else list(AREAS))
                 header = f"{'지역':<6}" + "".join(f"{n[0]:>9}" for n in CONTENT_TYPES.values()) + f"{'합계':>10}"
                 print(header)
                 print("-" * len(header))
                 grand = 0
-                for acode, aname in AREAS.items():
+                for acode in picked:
+                    aname = AREAS.get(acode, str(acode))
                     row, s = [], 0
                     for ctype in CONTENT_TYPES:
                         n = count(conn, ctype, acode)
@@ -67,7 +71,7 @@ def main():
                     grand += s
                     print(f"{aname:<6}" + "".join(f"{v:>9,}" for v in row) + f"{s:>10,}")
                 print("-" * len(header))
-                print(f"{'전국':<6}" + " " * (9 * len(CONTENT_TYPES)) + f"{grand:>10,}")
+                print(f"{'합계':<6}" + " " * (9 * len(CONTENT_TYPES)) + f"{grand:>10,}")
         except QuotaExceeded as e:
             print(f"\n중단: {e}")
 

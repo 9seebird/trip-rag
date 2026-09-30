@@ -1,11 +1,24 @@
-from fastapi import FastAPI, Query
+import os
+
+from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from ingest.config import EMBED_MODEL
 from ingest.db import connect
 from ingest.migrate import apply as apply_migrations
-from .search import run as run_search
+from . import limits
+from .course import build as build_course
+from .extract import AREA_NAME
+from .search import find as run_find, run as run_search
 
-app = FastAPI(title="trip-rag")
+# 운영(PUBLIC=1)에서는 API 문서·통계를 닫는다. 통계에는 비용이 찍힌다.
+PUBLIC = os.getenv("PUBLIC", "0") == "1"
+KAKAO_JS_KEY = os.getenv("KAKAO_JS_KEY", "")
+
+app = FastAPI(title="trip-rag", docs_url=None if PUBLIC else "/docs",
+              redoc_url=None, openapi_url=None if PUBLIC else "/openapi.json")
+limited = [Depends(limits.check)]
 
 
 @app.on_event("startup")
@@ -27,8 +40,25 @@ def health():
     return {"ok": True}
 
 
+@app.get("/api/config")
+def config():
+    """화면이 처음 한 번 부른다. 지역 목록은 '검색 가능한(색인된) 곳이 있는 지역' 만."""
+    with connect() as conn:
+        rows = conn.execute(
+            """SELECT p.area_code, count(DISTINCT p.content_id) places,
+                      count(DISTINCT c.content_id) indexed
+               FROM places p LEFT JOIN chunks c ON c.content_id = p.content_id AND c.model = %s
+               GROUP BY p.area_code ORDER BY p.area_code""", (EMBED_MODEL,)).fetchall()
+    regions = [{"code": r["area_code"], "name": AREA_NAME.get(r["area_code"], str(r["area_code"])),
+                "places": r["places"], "indexed": r["indexed"]}
+               for r in rows if r["indexed"] > 0]
+    return {"kakao_js_key": KAKAO_JS_KEY, "regions": regions}
+
+
 @app.get("/api/stats")
 def stats():
+    if PUBLIC:
+        raise HTTPException(404)
     with connect() as conn:
         progress = [dict(r) for r in conn.execute("SELECT * FROM ingest_progress").fetchall()]
         used = conn.execute("SELECT used FROM tour_quota_today").fetchone()["used"]
@@ -39,13 +69,25 @@ def stats():
             """SELECT coalesce(sum(cost_krw),0) krw, coalesce(sum(tokens),0) tok
                FROM api_calls WHERE api='bizrouter'""").fetchone()
     return {"tour_calls_today": used, "progress": progress, "models": models,
-            "bizrouter_cost_krw": float(cost["krw"]), "bizrouter_tokens": cost["tok"]}
+            "bizrouter_cost_krw": float(cost["krw"]), "bizrouter_tokens": cost["tok"],
+            "requests": limits.usage()}
 
 
-@app.get("/api/search")
+@app.get("/api/find", dependencies=limited)
+def find(
+    q: str = Query(..., min_length=1, max_length=100),
+    area: int | None = None,
+    limit: int = Query(12, ge=1, le=20),
+):
+    """서비스 화면용 검색 (조건 필터 + 의미 검색 + 리랭커)."""
+    with connect() as conn:
+        return run_find(conn, q, limit, overrides={"area": area})
+
+
+@app.get("/api/search", dependencies=limited)
 def search(
-    q: str = Query(..., min_length=1),
-    limit: int = 8,
+    q: str = Query(..., min_length=1, max_length=100),
+    limit: int = Query(8, ge=1, le=20),
     compare: str = Query("keyword", pattern="^(keyword|rerank)$"),
     filters: bool = True,
     pool: int = 30,
@@ -59,6 +101,22 @@ def search(
           "types": [int(t) for t in types.split(",")] if types else None}
     with connect() as conn:
         return run_search(conn, q, limit, compare, filters, pool, ov)
+
+
+@app.get("/api/course", dependencies=limited)
+def course(
+    id: int = Query(..., description="기준 장소 content_id"),
+    radius: float = Query(5.0, ge=1, le=30, description="후보 반경 km. 후보가 없으면 칸마다 2배·4배로 넓힌다"),
+    llm: bool = Query(True, description="false 면 모델 없이 규칙(가장 가까운 곳 + 최단 순서)"),
+):
+    with connect() as conn:
+        return build_course(conn, id, radius, llm)
+
+
+@app.get("/lab")
+def lab():
+    """검색 방식 비교 화면 (포트폴리오 설명용)."""
+    return FileResponse("static/lab.html")
 
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")

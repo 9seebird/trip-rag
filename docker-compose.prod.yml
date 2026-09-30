@@ -1,0 +1,45 @@
+# 운영 서버용 (trip.trendkit.app).  개발용 docker-compose.yml 과 따로 쓴다.
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# 개발용과 다른 점
+#   * DB 포트를 밖으로 열지 않는다
+#   * API 는 127.0.0.1 에만 붙인다 — 바깥 요청은 nginx 를 거쳐서만 들어온다
+#   * 코드 폴더를 마운트하지 않고 이미지에 굽는다, --reload 없음
+#   * PUBLIC=1 → API 문서·통계 닫힘, 사용량 제한 켜짐
+#   * 수집기(ingest)는 없다. 수집은 집 PC 에서 하고 DB 를 통째로 옮긴다
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: triprag-prod-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-triprag}
+      POSTGRES_USER: ${POSTGRES_USER:-triprag}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 를 .env 에 넣으세요}
+      TZ: Asia/Seoul
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-triprag} -d ${POSTGRES_DB:-triprag}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: .
+    container_name: triprag-prod-api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_HOST: db
+      PUBLIC: "1"
+    ports:
+      - "127.0.0.1:${API_PORT:-8090}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1 --proxy-headers --forwarded-allow-ips=*
+
+volumes:
+  pgdata:
