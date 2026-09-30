@@ -367,6 +367,19 @@ function mapCourse(all){
   });
 }
 
+function panTo(id){
+  if (!state.kakao || $("#main").classList.contains("nomap")) return;
+  const r = state.items.find(x => String(x.content_id) === String(id));
+  if (!r || !r.lat) return;
+  const pos = new kakao.maps.LatLng(r.lat, r.lon);
+  if (state.map.getBounds().contain(pos)) return;       // 이미 보이면 가만히
+  // 다른 지역(제주 → 강원)처럼 멀면 동네가 보이게 확대해서 옮기고, 가까우면 부드럽게 민다
+  const c = state.map.getCenter();
+  const far = Math.abs(c.getLat() - r.lat) + Math.abs(c.getLng() - r.lon) > 1;
+  if (far){ state.map.setLevel(Math.min(state.map.getLevel(), 9)); state.map.setCenter(pos); }
+  else state.map.panTo(pos);
+}
+
 function flash(el){ el.classList.add("hl"); setTimeout(() => el.classList.remove("hl"), 1400); }
 
 // ── 검색 ─────────────────────────────────────────────────
@@ -455,8 +468,16 @@ function renderResults(){
       </div>
     </article>`).join("")}</div>`;
   $("#pane").querySelectorAll("[data-card]").forEach(c => {
-    c.onmouseenter = () => document.querySelector(`[data-mk="${c.dataset.card}"]`)?.classList.add("on");
-    c.onmouseleave = () => document.querySelector(`[data-mk="${c.dataset.card}"]`)?.classList.remove("on");
+    c.onmouseenter = () => {
+      document.querySelector(`[data-mk="${c.dataset.card}"]`)?.classList.add("on");
+      // 카드에 잠깐 머물면(훑고 지나가는 건 무시) 그 장소가 지도 밖일 때만 지도를 옮긴다
+      clearTimeout(state.hoverT);
+      state.hoverT = setTimeout(() => panTo(c.dataset.card), 250);
+    };
+    c.onmouseleave = () => {
+      clearTimeout(state.hoverT);
+      document.querySelector(`[data-mk="${c.dataset.card}"]`)?.classList.remove("on");
+    };
   });
   mapResults(items);
 }
