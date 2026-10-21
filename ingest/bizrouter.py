@@ -130,7 +130,8 @@ def rerank(conn, query, documents, top_n=5, model=None):
     listing = "\n".join(f"[{i}] {d}" for i, d in enumerate(flat))
     text = chat(conn, [{"role": "system", "content": RERANK_PROMPT.format(n=top_n)},
                        {"role": "user", "content": f"질문: {query}\n\n{listing}"}],
-                model=model or RERANK_MODEL, temperature=0, op="rerank")
+                model=model or RERANK_MODEL, temperature=0, op="rerank",
+                reasoning_effort="low")   # Gemini 3 은 생각 단계를 끌 수 없어 낮춘다 (기본값이면 20~30초)
     t = re.sub(r"```(?:json)?", "", text or "")
     i, j = t.find("{"), t.rfind("}")
     ranking = json.loads(t[i:j + 1]).get("ranking", []) if 0 <= i < j else []
