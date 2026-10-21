@@ -81,7 +81,9 @@ def find(
 ):
     """서비스 화면용 검색 (조건 필터 + 의미 검색 + 리랭커)."""
     with connect() as conn:
-        return run_find(conn, q, limit, overrides={"area": area})
+        # Gemini 생성 모델 리랭크는 20~40초라 5초 상한에 거의 항상 걸린다 → 기다리지 않고 벡터 순서로.
+        # 빠른 리랭커가 생기면 use_rerank=True 로 되돌린다 (상한은 search.RERANK_TIMEOUT).
+        return run_find(conn, q, limit, overrides={"area": area}, use_rerank=False)
 
 
 @app.get("/api/search", dependencies=limited)
