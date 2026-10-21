@@ -17,6 +17,10 @@ from ingest.config import EMBED_MODEL
 
 from .extract import extract
 
+# 서비스 화면에서 리랭크를 기다리는 최대 시간(초). 넘으면 벡터 순서로 보여준다.
+# Gemini 생성 모델로 순위를 매기면 20~40초가 걸리기도 해서 둔 상한.
+RERANK_TIMEOUT = 5.0
+
 TYPE_NAME = {12: "관광지", 14: "문화시설", 15: "축제공연행사", 28: "레포츠", 39: "음식점"}
 
 # 긴 것부터 떼야 한다 ("에서" 를 "에" 로 먼저 떼면 "서" 가 남는다)
@@ -152,10 +156,10 @@ def vector_candidates(conn, q, pool=30, filters=None, model=EMBED_MODEL):
     return out
 
 
-def apply_rerank(conn, q, items, top_n=8):
+def apply_rerank(conn, q, items, top_n=8, timeout=None):
     if not items:
         return []
-    res = rerank(conn, q, [i["_text"] for i in items], top_n=top_n)
+    res = rerank(conn, q, [i["_text"] for i in items], top_n=top_n, timeout=timeout)
     out = []
     for rank, r in enumerate(res, 1):
         idx = r.get("index")
@@ -252,7 +256,7 @@ def find(conn, q, limit=12, pool=30, overrides=None, use_rerank=True):
     items = cand[:limit]
     if use_rerank and cand:
         try:
-            items = apply_rerank(conn, q, cand, limit)
+            items = apply_rerank(conn, q, cand, limit, timeout=RERANK_TIMEOUT)
         except Exception:                 # 리랭커가 죽어도 벡터 순서로는 보여준다
             items = cand[:limit]
     return {

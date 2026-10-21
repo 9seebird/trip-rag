@@ -34,7 +34,7 @@ def _wait_429(text, attempt):
     return float(m.group(1)) + 1 if m else min(60, 10 * (attempt + 1))
 
 
-def _post(conn, url, payload, op, headers, timeout=120.0, retries=3):
+def _post(conn, url, payload, op, headers, timeout=120.0, retries=3, wait_429=True):
     last = None
     # 429 는 분당 한도라 기다리면 풀린다. 무료 등급에서 색인을 끝까지 돌릴 수 있게 넉넉히 기다린다
     for attempt in range(max(retries, 10)):
@@ -47,7 +47,7 @@ def _post(conn, url, payload, op, headers, timeout=120.0, retries=3):
                 last = RuntimeError(f"HTTP {r.status_code}: {r.text[:200]}")
                 if r.status_code == 429:
                     wait = _wait_429(r.text, attempt)
-                    if wait > 90:                       # 하루 한도 같은 긴 대기는 기다리지 않는다
+                    if wait > 90 or not wait_429:       # 하루 한도 같은 긴 대기, 또는 기다리면 안 되는 호출
                         raise RuntimeError(f"HTTP 429 (한도 소진, {wait:.0f}초 뒤 풀림): {r.text[:200]}")
                     print(f"  한도 초과(429) — {wait:.0f}초 쉬고 다시", flush=True)
                     time.sleep(wait)
@@ -73,11 +73,11 @@ def _post(conn, url, payload, op, headers, timeout=120.0, retries=3):
     raise RuntimeError(f"{LLM_PROVIDER} 호출 실패: {last}")
 
 
-def _openai(conn, path, payload, op):
+def _openai(conn, path, payload, op, **post_kw):
     """OpenAI 호환 호출 (bizrouter 전부, gemini 의 생성)."""
     base = f"{GEMINI_BASE}/openai" if LLM_PROVIDER == "gemini" else BIZROUTER_BASE
     return _post(conn, f"{base}{path}", payload, op,
-                 {"Authorization": f"Bearer {_key()}", "Content-Type": "application/json"})
+                 {"Authorization": f"Bearer {_key()}", "Content-Type": "application/json"}, **post_kw)
 
 
 def embed(conn, texts, model=None, dim=None, query=False):
@@ -116,13 +116,17 @@ RERANK_PROMPT = """질문과 장소 설명 목록이 주어진다. 질문에 맞
 JSON 만 출력: {{"ranking":[{{"i":3,"score":0.92}}, ...]}}"""
 
 
-def rerank(conn, query, documents, top_n=5, model=None):
-    """[{index, relevance_score}] — 관련도 높은 순."""
+def rerank(conn, query, documents, top_n=5, model=None, timeout=None):
+    """[{index, relevance_score}] — 관련도 높은 순.
+
+    timeout(초)을 주면 그 안에 못 받을 때 재시도·429 대기 없이 바로 예외를 던진다.
+    """
+    post_kw = dict(timeout=timeout, retries=1, wait_429=False) if timeout else {}
     if LLM_PROVIDER != "gemini":
         data = _openai(conn, "/rerank", {
             "model": model or RERANK_MODEL, "query": query,
             "documents": documents, "top_n": top_n,
-        }, "rerank")
+        }, "rerank", **post_kw)
         return data.get("results") or data.get("data") or []
 
     # Gemini: 리랭커 대신 생성 모델에게 한 번에 읽히고 순서를 받는다
@@ -131,7 +135,7 @@ def rerank(conn, query, documents, top_n=5, model=None):
     text = chat(conn, [{"role": "system", "content": RERANK_PROMPT.format(n=top_n)},
                        {"role": "user", "content": f"질문: {query}\n\n{listing}"}],
                 model=model or RERANK_MODEL, temperature=0, op="rerank",
-                reasoning_effort="low")   # Gemini 3 은 생각 단계를 끌 수 없어 낮춘다 (기본값이면 20~30초)
+                reasoning_effort="low", post_kw=post_kw)   # Gemini 3 은 생각 단계를 끌 수 없어 낮춘다 (기본값이면 20~30초)
     t = re.sub(r"```(?:json)?", "", text or "")
     i, j = t.find("{"), t.rfind("}")
     ranking = json.loads(t[i:j + 1]).get("ranking", []) if 0 <= i < j else []
@@ -147,10 +151,10 @@ def rerank(conn, query, documents, top_n=5, model=None):
     return out[:top_n]
 
 
-def chat(conn, messages, model=None, op="chat", **kw):
+def chat(conn, messages, model=None, op="chat", post_kw=None, **kw):
     data = _openai(conn, "/chat/completions", {
         "model": model or CHAT_MODEL, "messages": messages, **kw,
-    }, op)
+    }, op, **(post_kw or {}))
     return data["choices"][0]["message"]["content"]
 
 
