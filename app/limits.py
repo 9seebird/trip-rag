@@ -25,8 +25,10 @@ _day = {"date": None, "count": 0}
 
 
 def client_ip(req: Request) -> str:
-    # nginx 가 X-Real-IP 를 넘겨준다. 직접 붙으면 소켓 주소.
-    return req.headers.get("x-real-ip") or (req.client.host if req.client else "?")
+    # Cloudflare Tunnel 은 CF-Connecting-IP, nginx 는 X-Real-IP 로 실제 접속 IP 를 넘겨준다.
+    # 둘 다 없으면 소켓 주소 (터널 뒤에서는 전부 터널 컨테이너 IP 라 한 사람으로 묶인다)
+    return (req.headers.get("cf-connecting-ip") or req.headers.get("x-real-ip")
+            or (req.client.host if req.client else "?"))
 
 
 def check(req: Request):

@@ -9,12 +9,26 @@ TOUR_BASE     = os.getenv("TOUR_BASE", "https://apis.data.go.kr/B551011/KorServi
 TOUR_APP_NAME = os.getenv("TOUR_APP_NAME", "triprag")
 TOUR_DAILY_LIMIT = int(os.getenv("TOUR_DAILY_LIMIT", "1000"))
 
+# 모델 제공처: bizrouter | gemini  (gemini 는 구글 AI Studio 키 하나로 임베딩·생성을 쓴다)
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "bizrouter").strip().lower()
+
 BIZROUTER_API_KEY = os.getenv("BIZROUTER_API_KEY", "")
 BIZROUTER_BASE    = os.getenv("BIZROUTER_BASE", "https://api.bizrouter.ai/v1").rstrip("/")
-EMBED_MODEL  = os.getenv("EMBED_MODEL", "bizrouter/qwen3-embedding-4b")
-EMBED_DIM    = int(os.getenv("EMBED_DIM", "1024"))
-RERANK_MODEL = os.getenv("RERANK_MODEL", "qwen/qwen3-reranker-8b")
-CHAT_MODEL   = os.getenv("CHAT_MODEL", "google/gemini-3.5-flash-lite")
+GEMINI_API_KEY    = os.getenv("GEMINI_API_KEY", "")
+GEMINI_BASE       = os.getenv("GEMINI_BASE", "https://generativelanguage.googleapis.com/v1beta").rstrip("/")
+
+_DEFAULTS = {
+    "bizrouter": dict(embed="bizrouter/qwen3-embedding-4b", rerank="qwen/qwen3-reranker-8b",
+                      chat="google/gemini-3.5-flash-lite"),
+    # Gemini 에는 리랭커 API 가 없다 → 생성 모델이 후보를 읽고 줄세운다 (bizrouter.rerank 참고)
+    "gemini":    dict(embed="gemini-embedding-001", rerank="gemini-3.5-flash-lite",
+                      chat="gemini-3.5-flash-lite"),
+}[LLM_PROVIDER]
+# .env 에 'EMBED_MODEL=' 처럼 비워 두면 제공처 기본값
+EMBED_MODEL  = os.getenv("EMBED_MODEL") or _DEFAULTS["embed"]
+EMBED_DIM    = int(os.getenv("EMBED_DIM") or "1024")
+RERANK_MODEL = os.getenv("RERANK_MODEL") or _DEFAULTS["rerank"]
+CHAT_MODEL   = os.getenv("CHAT_MODEL") or _DEFAULTS["chat"]
 
 DB = dict(
     host=os.getenv("DB_HOST", "localhost"),

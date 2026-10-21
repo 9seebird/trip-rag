@@ -130,7 +130,7 @@ def vector_candidates(conn, q, pool=30, filters=None, model=EMBED_MODEL):
     실험용 변형은 '모델명#변형' 으로 저장하므로, 질문을 임베딩할 때는 앞부분만 쓴다.
     (이름표를 그대로 API 에 보내면 model_not_found 가 난다.)
     """
-    qv = embed(conn, [q], model.split("#")[0])[0]
+    qv = embed(conn, [q], model.split("#")[0], query=True)[0]
     where, params = _where(filters or {})
     where.append("c.model = %(model)s")
     params.update(model=model, qv=to_pgvector(qv), pool=pool)

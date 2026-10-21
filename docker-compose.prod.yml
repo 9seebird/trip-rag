@@ -3,7 +3,7 @@
 #
 # 개발용과 다른 점
 #   * DB 포트를 밖으로 열지 않는다
-#   * API 는 127.0.0.1 에만 붙인다 — 바깥 요청은 nginx 를 거쳐서만 들어온다
+#   * API 는 127.0.0.1 에만 붙인다 — 바깥 요청은 nginx 또는 Cloudflare Tunnel 을 거쳐서만 들어온다
 #   * 코드 폴더를 마운트하지 않고 이미지에 굽는다, --reload 없음
 #   * PUBLIC=1 → API 문서·통계 닫힘, 사용량 제한 켜짐
 #   * 수집기(ingest)는 없다. 수집은 집 PC 에서 하고 DB 를 통째로 옮긴다
@@ -40,6 +40,21 @@ services:
       db:
         condition: service_healthy
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1 --proxy-headers --forwarded-allow-ips=*
+
+  # 집 노트북처럼 공인 IP·포트포워딩 없이 공개할 때 (Cloudflare Tunnel).
+  # nginx·인증서가 필요 없다. 켜기:  docker compose -f docker-compose.prod.yml --profile tunnel up -d
+  # 토큰은 Cloudflare Zero Trust → Networks → Tunnels 에서 터널을 만들면 나온다 (.env 의 TUNNEL_TOKEN)
+  # 터널의 Public Hostname 은  trip.trendkit.app → http://api:8000
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: triprag-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
+    depends_on:
+      - api
+    profiles: ["tunnel"]
 
 volumes:
   pgdata:
