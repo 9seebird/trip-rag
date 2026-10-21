@@ -27,6 +27,9 @@ CAR_KMH = 40           # 기본값 (지역별 값이 없을 때)
 # 지역별 차 평균 속도 어림. 부산은 시내 정체가 잦고, 강원은 국도 거리가 길다.
 AREA_KMH = {39: 40, 6: 25, 32: 45}
 AREA_NAME = {39: "제주", 6: "부산", 32: "강원"}
+# 모델 응답을 기다리는 최대 시간(초). 넘으면 규칙(가까운 곳 + 최단 순서)으로 바로 짠다.
+# Gemini 무료 등급은 한 번에 10~40초가 걸리기도 해서 둔 상한.
+LLM_TIMEOUT = 12.0
 CAFE_CAT3 = "A05020900"
 CAFE_RE = r"(카페|커피|cafe|coffee|베이커리|디저트)"
 
@@ -217,7 +220,7 @@ def ask_model(conn, anchor, cands):
     }
     text = chat(conn, [{"role": "system", "content": PROMPT},
                        {"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
-                temperature=0.3)
+                temperature=0.3, post_kw=dict(timeout=LLM_TIMEOUT, retries=1, wait_429=False))
     return parse_json(text), text
 
 
