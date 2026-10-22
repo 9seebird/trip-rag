@@ -35,6 +35,18 @@ docker compose run --rm ingest python -m ingest.fetch_intro --budget 900
 docker compose up -d api      # http://localhost:8080/api/stats
 ```
 
+## 매일 자동 수집 (서버 cron)
+
+서비스 서버(노트북 Ubuntu)에서 매일 10:00(KST)에 수집 → 실내/실외 판정 → 색인을 이어서 돌린다.
+지역은 `scripts/areas.txt` (지금 전국 17개 시도). 설치·운영은 `docs/배포가이드_노트북.md` 5장.
+
+```bash
+bash scripts/daily_collect.sh     # 한 번 돌리기 (로그 logs/collect_YYYYMMDD.log)
+bash scripts/install_cron.sh      # cron 등록
+```
+
+`scripts/*.ps1` 은 예전 Windows PC 용(작업 스케줄러)이다. 지금은 Linux 방식이 기본.
+
 ## 데이터 규모 — 재고 시작했다
 
 시작 전에 `totalCount` 만 세어 봤다. 목록 조회는 `numOfRows=1` 로 불러도 총계를 주므로

@@ -99,7 +99,8 @@ def main():
                     })
                 except QuotaExceeded as e:
                     print(f"\n중단: {e}")
-                    return
+                    # 0 이 아닌 종료코드 → daily.py 가 이 지역 목록을 '덜 받음' 으로 남겨 다음 날 다시 받는다
+                    raise SystemExit(2)
                 if total is None:
                     total = int(body.get("totalCount") or 0)
                     print(f"[{ctype} {name}] 총 {total}건")

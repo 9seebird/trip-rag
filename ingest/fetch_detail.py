@@ -27,7 +27,7 @@ SELECT content_id, content_type, title
 FROM places
 WHERE detail_status = %s
   AND (%s = 0 OR content_type = %s)
-ORDER BY priority, content_id
+ORDER BY priority, array_position(%s::int[], area_code) NULLS LAST, content_id
 LIMIT %s
 """
 
@@ -64,7 +64,7 @@ def fail(conn, cid, msg):
     )
 
 
-def run_once(conn, budget, status, only_type, sleep):
+def run_once(conn, budget, status, only_type, sleep, areas=()):
     used = tour_used_today(conn)
     room = max(0, TOUR_DAILY_LIMIT - used)
     n = min(budget, room)
@@ -72,7 +72,7 @@ def run_once(conn, budget, status, only_type, sleep):
         print(f"오늘 한도 소진 (사용 {used}/{TOUR_DAILY_LIMIT}). 자정(KST) 이후 다시.")
         return 0, True
 
-    rows = conn.execute(PICK, (status, 0 if not only_type else 1, only_type or 0, n)).fetchall()
+    rows = conn.execute(PICK, (status, 0 if not only_type else 1, only_type or 0, list(areas), n)).fetchall()
     if not rows:
         print(f"'{status}' 상태인 대상이 없습니다.")
         return 0, True
@@ -121,15 +121,18 @@ def main():
     ap.add_argument("--type", type=int, default=0, help="특정 contentTypeId 만")
     ap.add_argument("--retry-failed", action="store_true")
     ap.add_argument("--sleep", type=float, default=0.12)
+    ap.add_argument("--areas", default="",
+                    help="쉼표로. 같은 우선순위 안에서 이 지역 순서대로 (목록에 없는 지역은 맨 뒤)")
     ap.add_argument("--loop", action="store_true",
                     help="한도 소진 후 잠들었다가 KST 자정 지나면 자동으로 이어서 (밤새 걸어둘 때)")
     args = ap.parse_args()
 
     status = "failed" if args.retry_failed else "pending"
+    areas = [int(a) for a in args.areas.split(",") if a.strip()]
 
     with connect() as conn:
         while True:
-            done, stop = run_once(conn, args.budget, status, args.type, args.sleep)
+            done, stop = run_once(conn, args.budget, status, args.type, args.sleep, areas)
             print(f"\n{done}건 저장")
             report(conn)
             if not args.loop:

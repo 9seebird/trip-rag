@@ -6,7 +6,7 @@
 #   * API 는 127.0.0.1 에만 붙인다 — 바깥 요청은 nginx 또는 Cloudflare Tunnel 을 거쳐서만 들어온다
 #   * 코드 폴더를 마운트하지 않고 이미지에 굽는다, --reload 없음
 #   * PUBLIC=1 → API 문서·통계 닫힘, 사용량 제한 켜짐
-#   * 수집기(ingest)는 없다. 수집은 집 PC 에서 하고 DB 를 통째로 옮긴다
+#   * 수집기(ingest)는 profile tools 로만 뜬다. 서버 cron 이 매일 부른다 (scripts/daily_collect.sh)
 services:
   db:
     image: pgvector/pgvector:pg16
@@ -55,6 +55,28 @@ services:
     depends_on:
       - api
     profiles: ["tunnel"]
+
+  # 매일 수집·판정·색인. 상주하지 않고 cron 이 필요할 때만 띄운다 (scripts/daily_collect.sh):
+  #   docker compose -f docker-compose.prod.yml --profile tools run --rm -T ingest python -m ingest.daily --areas 39
+  # 코드는 이미지에 굽지 않고 마운트한다 → 서버에서 git pull 만 하면 다음 수집부터 새 코드.
+  # (requirements.txt 가 바뀌었을 때만  docker compose -f docker-compose.prod.yml build ingest)
+  ingest:
+    build: .
+    env_file: .env
+    environment:
+      DB_HOST: db
+      PYTHONIOENCODING: utf-8
+    volumes:
+      - ./ingest:/srv/ingest:ro
+      - ./app:/srv/app:ro
+      - ./eval:/srv/eval:ro
+      - ./sql:/srv/sql:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles: ["tools"]
+    entrypoint: []
+    command: ["python", "-m", "ingest.daily", "--help"]
 
 volumes:
   pgdata:

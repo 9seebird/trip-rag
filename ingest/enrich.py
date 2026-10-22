@@ -30,7 +30,7 @@ UPDATE places SET indoor = %s, indoor_source = 'rule'
 WHERE indoor IS NULL AND (title ~ %s OR coalesce(overview,'') ~ %s)
 """
 
-PROMPT = """다음은 제주 관광지·시설 목록이다. 각 항목이 비 오는 날에도 문제없이 즐길 수 있는
+PROMPT = """다음은 국내 관광지·시설 목록이다. 각 항목이 비 오는 날에도 문제없이 즐길 수 있는
 실내 공간인지 판단하라.
 
 - true: 건물 안에서 대부분의 활동이 이뤄짐 (박물관, 카페, 실내 체험관, 식당 등)

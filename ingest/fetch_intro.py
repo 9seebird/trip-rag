@@ -40,7 +40,7 @@ PICK = """
 SELECT content_id, content_type, title
 FROM places
 WHERE intro_status = %s AND (%s = 0 OR content_type = %s)
-ORDER BY priority, content_id
+ORDER BY priority, array_position(%s::int[], area_code) NULLS LAST, content_id
 LIMIT %s
 """
 
@@ -117,8 +117,11 @@ def main():
     ap.add_argument("--type", type=int, default=0)
     ap.add_argument("--retry-failed", action="store_true")
     ap.add_argument("--sleep", type=float, default=0.12)
+    ap.add_argument("--areas", default="",
+                    help="쉼표로. 같은 우선순위 안에서 이 지역 순서대로 (목록에 없는 지역은 맨 뒤)")
     args = ap.parse_args()
     status = "failed" if args.retry_failed else "pending"
+    areas = [int(a) for a in args.areas.split(",") if a.strip()]
 
     with connect() as conn:
         used = tour_used_today(conn)
@@ -126,7 +129,7 @@ def main():
         if n <= 0:
             print(f"오늘 한도 소진 ({used}/{TOUR_DAILY_LIMIT})")
             return
-        rows = conn.execute(PICK, (status, 0 if not args.type else 1, args.type or 0, n)).fetchall()
+        rows = conn.execute(PICK, (status, 0 if not args.type else 1, args.type or 0, areas, n)).fetchall()
         if not rows:
             print(f"'{status}' 상태 대상 없음")
             report(conn)
