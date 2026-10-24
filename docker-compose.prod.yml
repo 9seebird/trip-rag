@@ -69,7 +69,7 @@ services:
     volumes:
       - ./ingest:/srv/ingest:ro
       - ./app:/srv/app:ro
-      - ./eval:/srv/eval:ro
+      - ./eval:/srv/eval          # 평가 결과(eval/results.md)를 써야 해서 이것만 쓰기 가능
       - ./sql:/srv/sql:ro
     depends_on:
       db:
