@@ -259,6 +259,65 @@ footer b{color:var(--ink-2)}
 .alt .thumb{width:44px;height:44px;border-radius:8px}
 .alt b{display:block;font-size:13.5px}
 .alt small{color:var(--muted);font-size:12px}
+
+/* ── 첫 화면: 최근·많이 찾는·요즘 어울리는 검색어 ───────────── */
+.qrow{display:flex;align-items:center;gap:7px;margin-top:12px;max-width:760px;overflow-x:auto;scrollbar-width:none;
+  -webkit-mask-image:linear-gradient(90deg,#000 92%,transparent);mask-image:linear-gradient(90deg,#000 92%,transparent);padding-right:24px}
+.qrow::-webkit-scrollbar{display:none}
+.qrow > b{flex:none;font-size:12.5px;color:var(--muted);font-weight:600;margin-right:2px}
+.qrow .chip{flex:none;white-space:nowrap}
+.qrow .clear{flex:none;border:0;background:none;color:var(--muted);font-size:12.5px;padding:4px 6px}
+body.has-result .qrow{display:none}
+.home{margin:6px 0 34px}
+body.has-result .home{display:none}
+.home h2{font-size:17px;margin:22px 0 10px;letter-spacing:-.02em;display:flex;align-items:baseline;gap:8px}
+.home h2 small{font-size:12.5px;color:var(--muted);font-weight:500}
+.hscroll{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(200px,230px);gap:12px;overflow-x:auto;padding-bottom:6px;
+  scroll-snap-type:x mandatory;scrollbar-width:thin}
+.hcard{scroll-snap-align:start;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:14px;overflow:hidden;
+  padding:0;font:inherit;color:var(--ink);display:flex;flex-direction:column}
+.hcard:hover{border-color:var(--accent-line)}
+.hcard .ph{aspect-ratio:16/10}
+.hcard .hb{padding:9px 11px 11px;display:flex;flex-direction:column;gap:3px}
+.hcard b{font-size:14.5px;letter-spacing:-.02em;line-height:1.35}
+.hcard small{color:var(--muted);font-size:12px}
+
+/* ── 조건 칩 (끄고 켜기) ─────────────────── */
+.cond{display:inline-flex;align-items:center;gap:2px;padding:3px 4px 3px 10px;border-radius:999px;font-size:12.5px;font-weight:600;
+  background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent-line)}
+.cond button{border:0;background:none;color:inherit;width:20px;height:20px;border-radius:50%;font-size:13px;line-height:1;padding:0;opacity:.75}
+.cond button:hover{opacity:1;background:rgba(0,0,0,.06)}
+.cond.fixed{padding-right:10px}
+.cadd{border:1px dashed var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:3px 10px;font-size:12.5px;font-weight:500}
+.cadd:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ── 혼잡·휴무 표시 ─────────────────────── */
+.tag.calm{background:var(--olive-soft);color:var(--olive)}
+.tag.busy{background:var(--warm-soft);color:var(--warm)}
+.tag.closed{background:#fde2e2;color:#b91c1c}
+@media (prefers-color-scheme:dark){.tag.closed{background:#3b1a1a;color:#fca5a5}}
+.crowd{margin:12px 0;padding:12px 14px;background:var(--surface-2);border-radius:12px}
+.crowd .bars{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;align-items:end;height:74px;margin-top:8px}
+.crowd .bar{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--muted);height:100%;justify-content:flex-end}
+.crowd .bar i{display:block;width:100%;max-width:28px;border-radius:5px 5px 2px 2px;background:var(--accent-line)}
+.crowd .bar.busy i{background:var(--warm)} .crowd .bar.calm i{background:var(--olive)}
+.crowd p{margin:8px 0 0;font-size:12px;color:var(--muted)}
+
+/* ── 피드백 ─────────────────────────────── */
+.fb{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin:18px 0 6px;font-size:13.5px;color:var(--ink-2)}
+.fb button,.fbd button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 14px;font-size:13px;font-weight:600}
+.fb button[aria-pressed="true"],.fbd button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.fbd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:14px 0 4px;font-size:13px;color:var(--muted)}
+.fbd button{padding:5px 12px}
+
+/* ── 코스 출발 시각·도착 시각 ─────────────── */
+.plan{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:-4px 0 14px;font-size:13.5px;color:var(--ink-2)}
+.plan select{font:inherit;font-size:13.5px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:9px;padding:6px 8px}
+.at{font-variant-numeric:tabular-nums;font-weight:700;color:var(--ink)}
+.warns{display:flex;flex-direction:column;gap:3px;margin-top:6px}
+.warns span{font-size:12.5px;color:#b91c1c;background:#fdecec;border-radius:7px;padding:3px 8px;align-self:flex-start}
+.warns span.soft{color:var(--warm);background:var(--warm-soft)}
+@media (prefers-color-scheme:dark){.warns span{background:#3b1a1a;color:#fca5a5}}
 </style>
 </head>
 <body>
@@ -281,8 +340,10 @@ footer b{color:var(--ink-2)}
       <button type="button" class="region-btn" id="regionBtn" aria-haspopup="dialog"></button>
       <button type="button" class="region-btn" id="nearBtn"></button>
     </div>
-    <div class="chips" id="chips"></div>
+    <div id="qrows"></div>
   </section>
+
+  <section class="home" id="home" aria-live="polite"></section>
 
   <div class="understood" id="understood"></div>
   <div class="wx" id="wx" aria-live="polite"></div>
@@ -328,6 +389,7 @@ function kmBetween(a, b){
 }
 
 function toast(msg){
+  document.querySelectorAll(".toast").forEach(x => x.remove());      // 겹치지 않게 앞의 것은 치운다
   const t = Object.assign(document.createElement("div"), {className: "toast", textContent: msg});
   document.body.appendChild(t); setTimeout(() => t.remove(), 3200);
 }
@@ -344,11 +406,7 @@ async function api(url){
 
 // ── 시작: 지역 목록과 지도 키 ─────────────────────────────
 async function boot(){
-  EXAMPLES.forEach(t => {
-    const b = Object.assign(document.createElement("button"), {className: "chip", type: "button", textContent: t});
-    b.onclick = () => { $("#q").value = t; search(); };
-    $("#chips").appendChild(b);
-  });
+  renderQueryRows();
   let cfg = {regions: [], kakao_js_key: ""};
   try { cfg = await api("/api/config"); } catch (e) { console.warn(e); }
   state.regions = cfg.regions || [];
@@ -358,6 +416,7 @@ async function boot(){
   const p = new URLSearchParams(location.search);
   const q = p.get("q");
   if (q){ $("#q").value = q; await search(false); }
+  else if (!p.get("course")) loadHome();
   if (p.get("course")){                       // 공유받은 코스 링크로 바로 들어온 경우
     view.direct = true;
     history.replaceState({course: p.get("course")}, "", location.href);
@@ -487,7 +546,11 @@ function renderNear(){
   $("#regionBtn").style.opacity = state.near ? .5 : "";
 }
 $("#nearBtn").onclick = () => {
-  if (state.near){ state.near = null; renderNear(); if ($("#q").value.trim()) search(); return; }
+  if (state.near){
+    state.near = null; renderNear();
+    if (document.body.classList.contains("has-result") && $("#q").value.trim()) search(true, true); else loadHome();
+    return;
+  }
   if (!navigator.geolocation){ toast("이 브라우저는 위치를 지원하지 않아요."); return; }
   const b = $("#nearBtn");
   b.disabled = true; b.querySelector("span").textContent = "위치 확인 중…";
@@ -500,7 +563,7 @@ $("#nearBtn").onclick = () => {
     state.near = {lat, lon, r: NEAR_KM};
     renderNear();
     if (!$("#q").value.trim()) $("#q").value = "가볼 만한 곳";
-    search();
+    search(true, true);
   }, err => {
     b.disabled = false; renderNear();
     toast(err.code === 1 ? "위치 권한이 꺼져 있어요. 브라우저 설정에서 이 사이트의 위치를 허용해 주세요."
@@ -536,7 +599,9 @@ async function loadWeather(pt, ctx){
     act = `<small>야외 장소는 우산을 챙기세요</small>`;
   }
   box.innerHTML = `${UMB}<span><b>${when}</b>${temp}</span>${act}`;
-  $("#wxIndoor")?.addEventListener("click", () => { $("#q").value = $("#q").value.trim() + " 실내"; search(); });
+  $("#wxIndoor")?.addEventListener("click", () => {
+    state.cond.add.indoor = true; state.cond.off = state.cond.off.filter(o => o !== "indoor"); search(true, true);
+  });
 }
 $("#regionDlg").addEventListener("click", async e => {
   const b = e.target.closest("[data-a]");
@@ -545,7 +610,8 @@ $("#regionDlg").addEventListener("click", async e => {
     state.near = null;
     renderRegions(); renderNear();
     await closeSheet($("#regionDlg"));
-    if ($("#q").value.trim()) search();
+    if (document.body.classList.contains("has-result") && $("#q").value.trim()) search(true, true);
+    else loadHome();
     return;
   }
   if (e.target === e.currentTarget || e.target.closest("[data-close]")) closeSheet($("#regionDlg"));
@@ -719,15 +785,153 @@ function panTo(id){
 
 function flash(el){ el.classList.add("hl"); setTimeout(() => el.classList.remove("hl"), 1400); }
 
+// ── 첫 화면: 최근 검색 · 많이 찾는 검색 · 요즘 어울리는 검색 · 이번 주 축제 · 주말에 여유로운 곳 ──
+const RECENT_KEY = "banajeol.recent.v1";
+let recent = [];
+try { recent = JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"); } catch { recent = []; }
+function rememberQuery(q){
+  recent = [q, ...recent.filter(x => x !== q)].slice(0, 8);
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(recent)); } catch {}
+}
+// 달마다 어울리는 검색어 (계절 추천). 질문으로 그대로 검색된다
+const SEASON = {
+  1: ["따뜻한 실내 데이트", "겨울 바다 보기 좋은 곳", "눈 구경하기 좋은 곳"],
+  2: ["따뜻한 실내 데이트", "겨울 축제", "온천·스파"],
+  3: ["봄꽃 산책길", "매화 보기 좋은 곳", "아이랑 봄나들이"],
+  4: ["벚꽃 명소", "봄꽃 축제", "피크닉 하기 좋은 공원"],
+  5: ["아이랑 체험할 곳", "장미·꽃 정원", "야외 축제"],
+  6: ["시원한 숲길", "비 오는 날 실내", "바다 보면서 커피 마실 곳"],
+  7: ["시원한 계곡", "바다 물놀이", "더울 때 실내"],
+  8: ["시원한 계곡", "여름 축제", "더울 때 실내"],
+  9: ["가을 산책길", "억새 보기 좋은 곳", "가을 축제"],
+  10: ["단풍 명소", "억새 보기 좋은 곳", "가을 축제"],
+  11: ["단풍 명소", "따뜻한 실내 데이트", "늦가을 산책길"],
+  12: ["겨울 축제", "따뜻한 실내 데이트", "연말 야경 명소"],
+};
+let popular = [];
+function chipBtn(t){ return `<button type="button" class="chip" data-q="${esc(t)}">${esc(t)}</button>`; }
+function renderQueryRows(){
+  const rows = [];
+  if (recent.length) rows.push(`<div class="qrow"><b>최근</b>${recent.map(chipBtn).join("")}<button type="button" class="clear" id="clearRecent">지우기</button></div>`);
+  rows.push(`<div class="qrow"><b>${popular.length ? "많이 찾는" : "이렇게 찾아 보세요"}</b>${(popular.length ? popular : EXAMPLES).map(chipBtn).join("")}</div>`);
+  rows.push(`<div class="qrow"><b>${new Date().getMonth() + 1}월에 어울리는</b>${SEASON[new Date().getMonth() + 1].map(chipBtn).join("")}</div>`);
+  $("#qrows").innerHTML = rows.join("");
+  $("#clearRecent")?.addEventListener("click", () => {
+    recent = []; try { localStorage.removeItem(RECENT_KEY); } catch {} renderQueryRows();
+  });
+}
+$("#qrows").addEventListener("click", e => {
+  const b = e.target.closest("[data-q]");
+  if (b){ $("#q").value = b.dataset.q; search(); }
+});
+
+let homeSeq = 0;
+async function loadHome(){
+  const my = ++homeSeq;
+  const where = state.near ? `lat=${state.near.lat.toFixed(3)}&lon=${state.near.lon.toFixed(3)}`
+                           : (state.area ? `area=${state.area}` : "");
+  let d;
+  try { d = await api(`/api/home?${where}`); } catch { return; }
+  if (my !== homeSeq) return;
+  if ((d.popular || []).join() !== popular.join()){ popular = d.popular || []; renderQueryRows(); }
+  const TN = {12: "관광지", 14: "문화시설", 15: "축제공연행사", 28: "레포츠", 39: "음식점"};
+  state.homeItems = [...(d.festivals || []), ...(d.calm || [])].map(r => ({...r, type: TN[r.content_type] || ""}));
+  const place = state.near ? "내 근처" : (state.area ? areaName(state.area) : "전국");
+  const card = (r, sub) => `<button type="button" class="hcard" data-hdetail="${r.content_id}">
+      <div class="ph">${photo(r)}</div>
+      <div class="hb"><b>${esc(r.title)}</b><small>${sub}</small></div></button>`;
+  const parts = [];
+  if (d.festivals?.length) parts.push(`<h2>이번 주 열리는 축제 <small>${esc(place)} · 오늘부터 7일</small></h2>
+    <div class="hscroll">${d.festivals.map(r => card(r, `${md(r.event_start)}${r.event_end !== r.event_start ? "~" + md(r.event_end) : ""} · ${esc(shortAddr(r.addr).split(" ").slice(0, 2).join(" "))}`)).join("")}</div>`);
+  if (d.calm?.length) parts.push(`<h2>이번 주말 여유로울 곳 <small>${esc(place)} · 관광지 집중률 예측</small></h2>
+    <div class="hscroll">${d.calm.map(r => card(r, `주말 예상 <b style="font-size:12px;color:var(--olive)">${esc(r.level)}</b> · ${esc(shortAddr(r.addr).split(" ").slice(0, 2).join(" "))}`)).join("")}</div>`);
+  $("#home").innerHTML = parts.join("");
+}
+$("#home").addEventListener("click", e => {
+  const c = e.target.closest("[data-hdetail]");
+  if (c) detail(c.dataset.hdetail);
+});
+
+// ── 운영시간·쉬는 날 (서버가 글에서 읽어 둔 hours 로 계산) ─────────────────
+const DOW_NAME = ["월", "화", "수", "목", "금", "토", "일"];
+const dowOf = dt => (dt.getDay() + 6) % 7;                      // 0=월
+const ymd = dt => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+function nthOfMonth(dt){                                        // 그 달 몇 번째 같은 요일인지, 마지막인지
+  const n = Math.floor((dt.getDate() - 1) / 7) + 1;
+  const last = dt.getDate() + 7 > new Date(dt.getFullYear(), dt.getMonth() + 1, 0).getDate();
+  return {n, last};
+}
+function closedOn(h, dt){
+  if (!h || h.always_open) return false;
+  const dw = dowOf(dt);
+  if ((h.closed_dow || []).includes(dw)) return true;
+  const {n, last} = nthOfMonth(dt);
+  return (h.closed_nth || []).some(([k, d]) => d === dw && (k === n || (k === -1 && last)));
+}
+function closedText(h){
+  if (!h) return "";
+  const w = (h.closed_dow || []).map(d => DOW_NAME[d]).join("·");
+  const NTH = {1: "첫째", 2: "둘째", 3: "셋째", 4: "넷째", 5: "다섯째", "-1": "마지막"};
+  const m = (h.closed_nth || []).map(([k, d]) => `${NTH[k]} ${DOW_NAME[d]}`).join(", ");
+  return [w && `매주 ${w}요일`, m && `매월 ${m}요일`].filter(Boolean).join(", ");
+}
+const clock = m => `${Math.floor(m / 60) % 24}:${String(m % 60).padStart(2, "0")}`;
+
+// ── 혼잡도 예측 (관광지 집중률: 그곳의 과거 가장 붐빈 때 = 100) ───────────────
+const crowdLevel = r => r == null ? null : (r < 50 ? "여유" : (r < 80 ? "보통" : "붐빔"));
+function crowdOn(r, dt){
+  const hit = (r.crowd || []).find(([d]) => d === ymd(dt));
+  return hit ? hit[1] : null;
+}
+function crowdBlock(r){
+  if (!r.crowd?.length) return "";
+  const days = r.crowd.slice(0, 7);
+  return `<div class="crowd"><b style="font-size:13px">이번 주 혼잡 예상</b>
+    <div class="bars">${days.map(([d, v]) => {
+      const dt = new Date(d + "T00:00:00"), lv = crowdLevel(v);
+      return `<div class="bar ${lv === "붐빔" ? "busy" : lv === "여유" ? "calm" : ""}" title="${md(d)} ${v ?? "-"}">
+        <i style="height:${Math.max(6, Math.min(100, v ?? 0)) * .52}px"></i>${DOW_NAME[dowOf(dt)]}</div>`;
+    }).join("")}</div>
+    <p>한국관광공사 관광지 집중률 예측이에요. 이곳이 가장 붐볐던 때를 100으로 둔 값이라, 실제 인원 수가 아니라 '평소보다 얼마나 붐빌지'로 봐 주세요.</p></div>`;
+}
+
+// ── 결과 피드백 (좋아요/별로) ─────────────────────────────
+const FB_KEY = "banajeol.fb.v1";
+let fbDone = {};
+try { fbDone = JSON.parse(localStorage.getItem(FB_KEY) || "{}"); } catch { fbDone = {}; }
+async function sendFeedback(q, id, vote, rank){
+  const k = `${q}|${id ?? ""}`;
+  const prev = fbDone[k] || 0;
+  const next = prev === vote ? 0 : vote;                        // 같은 걸 다시 누르면 취소
+  try {
+    if (prev) await fetch("/api/feedback", {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({q, content_id: id ?? null, vote: 0})});
+    if (next) await fetch("/api/feedback", {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({q, content_id: id ?? null, vote: next, rank: rank ?? null, area: state.area})});
+  } catch { toast("보내지 못했어요. 잠시 뒤 다시 눌러 주세요."); return prev; }
+  if (next) fbDone[k] = next; else delete fbDone[k];
+  const keys = Object.keys(fbDone);
+  if (keys.length > 300) keys.slice(0, keys.length - 300).forEach(x => delete fbDone[x]);
+  try { localStorage.setItem(FB_KEY, JSON.stringify(fbDone)); } catch {}
+  return next;
+}
+const fbState = (q, id) => fbDone[`${q}|${id ?? ""}`] || 0;
+
 // ── 검색 ─────────────────────────────────────────────────
-async function search(push = true){
+// 조건 칩: 질문에서 알아들은 조건을 끄거나(off), 직접 켤(add) 수 있다. 새 질문을 치면 비운다
+state.cond = {off: [], add: {}};
+const ADDABLE = [["indoor", true, "실내"], ["indoor", false, "야외"], ["pet", true, "반려동물 동반"], ["access", true, "무장애"]];
+
+async function search(push = true, keepCond = false){
   const q = $("#q").value.trim();
   if (!q) { $("#q").focus(); return; }
+  if (!keepCond || q !== state.last?.query) state.cond = {off: [], add: {}};
   if (push) history.replaceState(null, "", "?q=" + encodeURIComponent(q));
+  rememberQuery(q); renderQueryRows();
   view.listY = 0;
   document.body.classList.add("has-result");
   $("#go").disabled = true;
-  $("#understood").innerHTML = "";
+  if (!keepCond) $("#understood").innerHTML = "";
   $("#wx").innerHTML = "";
   $("#pane").innerHTML = `<div class="grid">${Array.from({length: 6}, () =>
     `<div class="card"><div class="ph sk"></div><div class="body"><div class="sk" style="height:16px;width:60%"></div>
@@ -736,12 +940,15 @@ async function search(push = true){
     const where = state.near
       ? `&lat=${state.near.lat.toFixed(4)}&lon=${state.near.lon.toFixed(4)}&radius=${state.near.r}`
       : (state.area ? "&area=" + state.area : "");
-    const d = await api(`/api/find?q=${encodeURIComponent(q)}&limit=12${where}`);
+    const c = state.cond;
+    const cond = (c.off.length ? "&off=" + c.off.join(",") : "")
+      + Object.entries(c.add).map(([k, v]) => `&${k}=${v}`).join("");
+    const d = await api(`/api/find?q=${encodeURIComponent(q)}&limit=12${where}${cond}`);
     state.items = d.items || [];
     state.last = d;
     renderUnderstood(d);
     renderResults();
-    if (push) toResultsTop();
+    if (push && !keepCond) toResultsTop();
     loadWeather(state.near || state.items.find(i => i.lat != null), "list");
   }catch(e){
     $("#pane").innerHTML = `<div class="empty">${esc(e.message)}</div>`;
@@ -751,16 +958,49 @@ async function search(push = true){
 }
 
 function renderUnderstood(d){
-  const parts = (d.extracted || []).filter(w => !(w.field === "area" && state.area)).map(w =>
-    `<span class="pill" title="“${esc(w.matched)}”에서 알아들음">${esc(w.label)}</span>`);
-  if (d.near && state.near) parts.unshift(`<span class="pill">내 근처 ${state.near.r}km</span>`);
-  else if (state.area) parts.unshift(`<span class="pill">${esc(areaName(state.area))}</span>`);
+  const X = (key, label, title = "") =>
+    `<span class="cond" ${title ? `title="${esc(title)}"` : ""}>${esc(label)}<button type="button" data-cx="${esc(key)}" aria-label="${esc(label)} 조건 빼기">✕</button></span>`;
+  const chips = [];
+  if (d.near && state.near) chips.push(X("near", `내 근처 ${state.near.r}km`));
+  else if (state.area) chips.push(X("region", areaName(state.area)));
+  for (const w of d.extracted || []){
+    if (w.field === "area" && state.area) continue;
+    if (w.field in state.cond.add) continue;                 // 직접 켠 값이 이긴다
+    if (w.field === "baby") { chips.push(`<span class="cond fixed" title="유모차 정보만 표시하고 거르지는 않아요">${esc(w.label)}</span>`); continue; }
+    chips.push(X("f:" + w.field, w.label, `“${w.matched}”에서 알아들음`));
+  }
+  for (const [k, v] of Object.entries(state.cond.add)){
+    const a = ADDABLE.find(([f, val]) => f === k && val === v);
+    if (a) chips.push(X("a:" + k, a[2]));
+  }
+  const active = new Set([...(d.extracted || []).map(w => w.field), ...Object.keys(state.cond.add)]);
+  const adds = ADDABLE.filter(([f]) => !active.has(f) && !(f === "indoor" && active.has("indoor")))
+    .map(([f, v, label]) => `<button type="button" class="cadd" data-ca="${f}:${v}">+ ${label}</button>`);
+  const offs = state.cond.off.length ? `<button type="button" class="cadd" data-creset>뺀 조건 되돌리기</button>` : "";
   const dropped = (d.dropped_filters || []).map(f => `<span class="pill off">${
     f === "pet" || f === "access" ? `${FIELD[f]} 가능한 곳이 적어 앞에 두고 넓혀서 찾음`
                                   : `${FIELD[f] || f} 조건은 맞는 곳이 적어 넓혀서 찾음`}</span>`);
-  $("#understood").innerHTML = parts.length || dropped.length
-    ? `<span>이렇게 이해했어요</span>${parts.join("")}${dropped.join("")}` : "";
+  $("#understood").innerHTML = `<span>${chips.length ? "이 조건으로 찾았어요" : "조건 더하기"}</span>${chips.join("")}${adds.join("")}${offs}${dropped.join("")}`;
 }
+$("#understood").addEventListener("click", e => {
+  const x = e.target.closest("[data-cx]"), a = e.target.closest("[data-ca]"), r = e.target.closest("[data-creset]");
+  if (!x && !a && !r) return;
+  const c = state.cond;
+  if (x){
+    const k = x.dataset.cx;
+    if (k === "near"){ state.near = null; renderNear(); }
+    else if (k === "region"){ state.area = null; renderRegions(); }
+    else if (k.startsWith("f:")) c.off = [...new Set([...c.off, k.slice(2)])];
+    else if (k.startsWith("a:")) delete c.add[k.slice(2)];
+  }
+  if (a){
+    const [f, v] = a.dataset.ca.split(":");
+    c.add[f] = v === "true" ? true : v === "false" ? false : v;
+    c.off = c.off.filter(o => o !== f);
+  }
+  if (r) c.off = [];
+  search(true, true);
+});
 
 const md = d => { const [, m, dd] = String(d).split("-"); return `${+m}.${+dd}`; };
 function badges(r){
@@ -773,6 +1013,11 @@ function badges(r){
   if (r.wheelchair_ok) b.push(`<span class="tag in">휠체어</span>`);
   if (r.stroller_ok || r.baby_ok === true) b.push(`<span class="tag in">유모차</span>`);
   else if (r.baby_ok === false) b.push(`<span class="tag warn">유모차 어려움</span>`);
+  const today = new Date();
+  if (closedOn(r.hours, today)) b.unshift(`<span class="tag closed" title="${esc(r.restdate || "")}">오늘 휴무</span>`);
+  const lv = crowdLevel(crowdOn(r, today));
+  if (lv === "붐빔") b.push(`<span class="tag busy" title="관광지 집중률 예측">오늘 붐빔 예상</span>`);
+  else if (lv === "여유") b.push(`<span class="tag calm" title="관광지 집중률 예측">오늘 여유 예상</span>`);
   return b.join("");
 }
 
@@ -818,7 +1063,10 @@ function renderResults(){
           <button class="btn primary" data-course="${r.content_id}">여기서 반나절 코스</button>
         </div>
       </div>
-    </article>`).join("")}</div>`;
+    </article>`).join("")}</div>
+    <div class="fb" id="fbSearch">찾던 결과였나요?
+      <button type="button" data-fbs="1" aria-pressed="${fbState(state.last?.query, null) === 1}">👍 네</button>
+      <button type="button" data-fbs="-1" aria-pressed="${fbState(state.last?.query, null) === -1}">👎 아니요</button></div>`;
   $("#pane").querySelectorAll("[data-card]").forEach(c => {
     c.onmouseenter = () => {
       document.querySelector(`[data-mk="${c.dataset.card}"]`)?.classList.add("on");
@@ -849,10 +1097,19 @@ function factBlock(title, info, fields){
     `<dt>${label}</dt><dd>${esc(String(info[k]).replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, ""))}</dd>`).join("")}</dl>`;
 }
 function detail(id){
-  const r = state.items.find(x => String(x.content_id) === String(id));
+  const r = state.items.find(x => String(x.content_id) === String(id))
+         || (state.homeItems || []).find(x => String(x.content_id) === String(id));
   if (!r) return;
-  const facts = [["운영시간", r.usetime], ["쉬는 날", r.restdate], ["요금", r.usefee], ["대표 메뉴", r.menu],
+  const today = new Date();
+  const todayNote = closedOn(r.hours, today) ? `오늘(${DOW_NAME[dowOf(today)]}) 쉬는 날이에요`
+    : (r.hours?.open != null ? `${clock(r.hours.open)}~${clock(r.hours.close)} (원문 기준 어림)` : "");
+  const facts = [["오늘", todayNote], ["운영시간", r.usetime], ["쉬는 날", r.restdate], ["요금", r.usefee], ["대표 메뉴", r.menu],
                  ["주차", r.parking], ["문의", r.tel]].filter(([, v]) => v && String(v).trim());
+  const inResults = state.items.indexOf(r);
+  const q = state.last?.query;
+  const fbBox = q && inResults >= 0 ? `<div class="fbd">“${esc(q)}”에 맞는 곳이었나요?
+      <button type="button" data-fbd="1" data-id="${r.content_id}" data-rank="${inResults + 1}" aria-pressed="${fbState(q, r.content_id) === 1}">👍 맞아요</button>
+      <button type="button" data-fbd="-1" data-id="${r.content_id}" data-rank="${inResults + 1}" aria-pressed="${fbState(q, r.content_id) === -1}">👎 아니에요</button></div>` : "";
   const dlg = $("#dlg");
   dlg.innerHTML = `<div class="dx">
     <button class="close" aria-label="닫기" data-close>×</button>
@@ -862,18 +1119,27 @@ function detail(id){
       <h2>${esc(r.title)}</h2>
       <div class="addr" style="color:var(--muted);font-size:13.5px">${esc(r.addr)}</div>
       ${facts.length ? `<dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>` : ""}
+      ${crowdBlock(r)}
       ${factBlock("반려동물 동반", r.pet_info, PET_FIELDS)}
       ${factBlock("무장애 정보", r.access_info, ACCESS_FIELDS)}
-      <div class="ov">${esc(r.overview || r.snippet)}</div>
+      ${r.overview || r.snippet ? `<div class="ov">${esc(r.overview || r.snippet)}</div>` : ""}
       <div class="actions">
         <button class="btn" type="button" data-save="${r.content_id}">${isSaved(r.content_id) ? "♥ 저장됨" : "♡ 저장"}</button>
         ${r.lat ? `<a class="btn" target="_blank" rel="noopener" href="https://map.kakao.com/link/map/${encodeURIComponent(r.title)},${r.lat},${r.lon}">카카오맵</a>` : ""}
         <button class="btn primary" data-course="${r.content_id}" data-close>여기서 반나절 코스</button>
       </div>
+      ${fbBox}
     </div></div>`;
   openSheet(dlg);
 }
-$("#dlg").addEventListener("click", e => {
+$("#dlg").addEventListener("click", async e => {
+  const f = e.target.closest("[data-fbd]");
+  if (f){
+    const v = await sendFeedback(state.last.query, Number(f.dataset.id), Number(f.dataset.fbd), Number(f.dataset.rank));
+    $("#dlg").querySelectorAll("[data-fbd]").forEach(b => b.setAttribute("aria-pressed", Number(b.dataset.fbd) === v));
+    if (v) toast(v > 0 ? "고마워요! 검색을 다듬는 데 쓸게요" : "알려 주셔서 고마워요. 이런 곳은 덜 보이게 다듬을게요");
+    return;
+  }
   if (e.target.closest("[data-course]")) return;      // 아래 문서 클릭 처리기가 코스로 보낸다
   if (e.target === e.currentTarget || e.target.closest("[data-close]")) closeSheet($("#dlg"));
 });
@@ -888,9 +1154,19 @@ function routeLink(stops){
 // ── 코스 ─────────────────────────────────────────────────
 async function course(id){
   document.body.classList.add("has-result");
-  $("#pane").innerHTML = `<div class="empty">근처에서 볼거리·식사·카페를 골라 코스를 짜는 중이에요…</div>`;
+  $("#pane").innerHTML = `<div class="course-head"><div style="flex:1"><div class="sk" style="height:24px;width:55%"></div>
+      <p id="cmsg" style="margin-top:10px">근처에서 볼거리·식사·카페 후보를 고르는 중이에요…</p></div></div>
+    <ol class="timeline">${[0, 1, 2, 3].map(i => `<li class="tl"><div class="no">${i + 1}</div><div>
+      <div class="stop"><div class="thumb sk"></div><div style="flex:1;display:grid;gap:8px;align-content:start">
+        <div class="sk" style="height:14px;width:30%"></div><div class="sk" style="height:16px;width:65%"></div>
+        <div class="sk" style="height:12px;width:45%"></div></div></div><p class="stay">&nbsp;</p></div></li>`).join("")}</ol>`;
   $("#wx").innerHTML = "";
   toResultsTop();
+  // 모델이 순서를 정하는 데 몇 초 걸린다 — 기다리는 동안 무엇을 하는지 알려 준다
+  const msgs = ["AI가 후보 중에서 순서와 이유를 정하는 중이에요…", "이동 거리와 시간을 계산하는 중이에요…",
+                "조금만 더 기다려 주세요. 오래 걸리면 가까운 곳 기준으로 바로 짜 드려요"];
+  let mi = 0;
+  const timer = setInterval(() => { const m = $("#cmsg"); if (!m) return clearInterval(timer); m.textContent = msgs[Math.min(mi++, msgs.length - 1)]; }, 2500);
   try{
     const d = await api(`/api/course?id=${encodeURIComponent(id)}`);
     if (d.error) throw new Error(d.error);
@@ -904,10 +1180,12 @@ async function course(id){
         swapStop(d, k, v);
       }
     }
+    clearInterval(timer);
     state.course = d;
     renderCourse();
     loadWeather(d.start, "course");
   }catch(e){
+    clearInterval(timer);
     $("#pane").innerHTML = `<div class="empty">코스를 짜지 못했어요: ${esc(e.message)}<br><button class="btn" style="margin-top:12px" onclick="backToList()">목록으로</button></div>`;
   }
 }
@@ -934,9 +1212,43 @@ function swapStop(d, key, cid){
   return true;
 }
 
+// 출발 날짜·시각 → 정류장마다 도착 시각. 쉬는 날·영업시간 밖이면 알려 준다
+function defaultPlan(){
+  const now = new Date(), m = now.getHours() * 60 + now.getMinutes();
+  if (m < 7 * 60) return {day: 0, min: 10 * 60};
+  if (m <= 17 * 60) return {day: 0, min: Math.max(9 * 60, Math.ceil((m + 15) / 30) * 30)};
+  return {day: 1, min: 10 * 60};
+}
+state.plan = defaultPlan();
+function planDate(){ const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + state.plan.day); return d; }
+function schedule(all){
+  const dt = planDate();
+  let t = state.plan.min;
+  return all.map((s, i) => {
+    if (i) t += s.leg_min || 0;
+    const arrive = t, stay = i ? (s.stay_min || 60) : 60, leave = arrive + stay;
+    t = leave;
+    const warns = [], h = s.hours;
+    if (closedOn(h, dt)) warns.push(["", `이날(${DOW_NAME[dowOf(dt)]}) 쉬는 날이에요 · ${closedText(h)}`]);
+    else if (h && h.open != null){
+      if (arrive < h.open) warns.push(["soft", `${clock(h.open)}에 문을 열어요 (도착 ${clock(arrive)})`]);
+      else if (arrive >= h.close) warns.push(["", `${clock(h.close)}에 닫아요 — 도착이 늦어요`]);
+      else if (leave > h.close) warns.push(["soft", `${clock(h.close)}에 닫아요 — 머무는 시간이 짧아질 수 있어요`]);
+    }
+    const lv = crowdLevel(crowdOn(s, dt));
+    if (lv === "붐빔") warns.push(["soft", "이날 붐빔 예상 (관광지 집중률)"]);
+    return {arrive, leave, warns, crowd: lv};
+  });
+}
+
 function renderCourse(){
   const d = state.course;
   const all = [d.start, ...d.stops];
+  const sch = schedule(all);
+  const base = new Date(); base.setHours(0, 0, 0, 0);
+  const dayLabel = n => { const x = new Date(base); x.setDate(x.getDate() + n);
+    return `${["오늘", "내일", "모레"][n] || `${x.getMonth() + 1}/${x.getDate()}`} (${DOW_NAME[dowOf(x)]})`; };
+  const times = []; for (let m = 7 * 60; m <= 20 * 60; m += 30) times.push(m);
   const used = new Set(all.map(s => String(s.content_id)));
   const t = d.totals;
   const alts = s => (d.candidates?.[s.slot_key] || []).filter(c => !used.has(String(c.content_id)));
@@ -951,6 +1263,11 @@ function renderCourse(){
         <button class="btn" type="button" id="back">← 목록</button>
       </div>
     </div>
+    <div class="plan"><span>출발</span>
+      <select id="planDay" aria-label="출발 날짜">${[0, 1, 2, 3, 4, 5, 6].map(n => `<option value="${n}" ${n === state.plan.day ? "selected" : ""}>${dayLabel(n)}</option>`).join("")}</select>
+      <select id="planMin" aria-label="출발 시각">${times.map(m => `<option value="${m}" ${m === state.plan.min ? "selected" : ""}>${clock(m)}</option>`).join("")}</select>
+      <span>→ 끝나는 시각 <b class="at">${clock(sch[sch.length - 1].leave)}</b></span>
+      ${sch.some(x => x.warns.some(w => !w[0])) ? `<span class="tag closed">확인할 곳 있어요</span>` : ""}</div>
     <div class="stats">
       <div class="stat"><b>${hm(t.total_min)}</b><span>전체</span></div>
       <div class="stat"><b>${hm(t.move_min)}</b><span>이동 · ${t.move_km}km</span></div>
@@ -964,10 +1281,11 @@ function renderCourse(){
         <div class="stop">
           <div class="thumb">${photo(s)}</div>
           <div style="min-width:0;flex:1">
-            <div class="tags"><span class="tag">${esc(i ? s.slot_name : "출발")}</span>${s.indoor === true ? `<span class="tag in">실내</span>` : ""}</div>
+            <div class="tags"><span class="at">${clock(sch[i].arrive)}</span><span class="tag">${esc(i ? s.slot_name : "출발")}</span>${s.indoor === true ? `<span class="tag in">실내</span>` : ""}${sch[i].crowd === "여유" ? `<span class="tag calm">여유 예상</span>` : ""}</div>
             <h3>${esc(s.title)}</h3>
             <div class="addr">${esc(shortAddr(s.addr))}</div>
             ${i && s.reason ? `<p class="why">${esc(s.reason)}</p>` : ""}
+            ${sch[i].warns.length ? `<div class="warns">${sch[i].warns.map(([c, w]) => `<span class="${c}">${esc(w)}</span>`).join("")}</div>` : ""}
             <div class="links">
               <a target="_blank" rel="noopener" href="https://map.kakao.com/link/map/${encodeURIComponent(s.title)},${s.lat},${s.lon}">지도</a>
               ${i ? `<a target="_blank" rel="noopener" href="https://map.kakao.com/link/to/${encodeURIComponent(s.title)},${s.lat},${s.lon}">길찾기</a>` : ""}
@@ -980,7 +1298,7 @@ function renderCourse(){
               </button>`).join("")}</div>` : ""}
           </div>
         </div>
-        <p class="stay">머무는 시간 약 ${hm(i ? s.stay_min : 60)}</p>
+        <p class="stay">머무는 시간 약 ${hm(i ? s.stay_min : 60)} · ${clock(sch[i].leave)}까지</p>
       </div></li>`;
     }).join("")}
     </ol>
@@ -989,10 +1307,21 @@ function renderCourse(){
       : "가까운 곳을 기준으로 규칙에 따라 골랐어요."} 이동 시간은 직선거리로 어림한 값이에요.</div>`;
   $("#back").onclick = backToList;
   $("#share").onclick = shareCourse;
+  const replan = () => { state.plan = {day: +$("#planDay").value, min: +$("#planMin").value};
+    const y = window.scrollY; renderCourse(); window.scrollTo(0, y); };
+  $("#planDay").onchange = replan; $("#planMin").onchange = replan;
   mapCourse(all);
 }
 
-$("#pane").addEventListener("click", e => {
+$("#pane").addEventListener("click", async e => {
+  const fs = e.target.closest("[data-fbs]");
+  if (fs && state.last){
+    const v = await sendFeedback(state.last.query, null, Number(fs.dataset.fbs));
+    $("#fbSearch").querySelectorAll("[data-fbs]").forEach(b => b.setAttribute("aria-pressed", Number(b.dataset.fbs) === v));
+    if (v > 0) toast("고마워요!");
+    else if (v < 0) toast("아쉬웠군요. 위의 조건 칩을 바꾸거나 지역을 골라 보세요. 알려 주신 건 검색을 고치는 데 써요");
+    return;
+  }
   const sw = e.target.closest("[data-swap]");
   if (sw){
     const box = document.getElementById("alts-" + sw.dataset.swap);

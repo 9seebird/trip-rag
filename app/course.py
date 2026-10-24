@@ -21,6 +21,7 @@ import time
 from ingest.bizrouter import chat
 
 from .extract import AREA_NAME
+from .hours import parse as parse_hours
 
 TYPE_NAME = {12: "관광지", 14: "문화시설", 15: "축제공연행사", 28: "레포츠", 39: "음식점"}
 
@@ -153,7 +154,7 @@ def fallback(anchor, cands):
 def _place(conn, cid):
     return conn.execute(
         "SELECT content_id, content_type, title, addr, lat, lon, image_url, overview, cat3,"
-        " indoor, baby_ok, area_code FROM places WHERE content_id = %s", (cid,)).fetchone()
+        " indoor, baby_ok, area_code, usetime, restdate FROM places WHERE content_id = %s", (cid,)).fetchone()
 
 
 def candidates(conn, anchor, slot, radius, exclude, k=4):
@@ -167,6 +168,7 @@ def candidates(conn, anchor, slot, radius, exclude, k=4):
     sql = f"""
     SELECT * FROM (
       SELECT content_id, content_type, title, addr, lat, lon, image_url, overview, cat3, indoor, baby_ok,
+        usetime, restdate,
         6371 * 2 * asin(sqrt(
           power(sin(radians(lat - %(lat)s) / 2), 2) +
           cos(radians(%(lat)s)) * cos(radians(lat)) * power(sin(radians(lon - %(lon)s) / 2), 2))) AS km
@@ -243,6 +245,9 @@ def _stop(p, slot, reason, prev, kmh=CAR_KMH):
         "snippet": (ov[:120] + "…") if len(ov) > 120 else ov,
         "reason": reason,
         "leg_km": round(km, 1), "leg_min": drive_min(km, kmh), "stay_min": SLOTS[base][3],
+        # 화면이 출발 시각으로 정류장별 도착 시각을 계산하고, 쉬는 날·영업시간 밖이면 알려 준다
+        "usetime": p.get("usetime"), "restdate": p.get("restdate"),
+        "hours": parse_hours(p.get("usetime"), p.get("restdate")),
     }
 
 

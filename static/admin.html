@@ -77,6 +77,7 @@ function render(d){
   const days = [...new Set(d.daily.map(x => x.d))];
   const maxDay = Math.max(1, ...days.map(dd => sum(d.daily.filter(x => x.d === dd), "n")));
   const gem = d.models_today.filter(m => m.api !== "tour");
+  const fb = d.feedback || {summary: {}, recent: [], bad: []}, cr = d.crowd || {};
   const totIdx = d.areas.reduce((n, a) => n + a.indexed, 0), totPl = d.areas.reduce((n, a) => n + a.places, 0);
 
   $("#app").innerHTML = `
@@ -96,6 +97,8 @@ function render(d){
     <div class="kpi"><b>${num(d.extras.pet)}</b><span>반려동물 동반 가능</span></div>
     <div class="kpi"><b>${num(d.extras.access)}</b><span>무장애 정보 있음</span></div>
     <div class="kpi"><b>${num(d.extras.no_image)}</b><span>사진 없는 곳</span></div>
+    <div class="kpi"><b>${num(fb.summary.up)} / <span class="${fb.summary.down ? "bad" : ""}">${num(fb.summary.down)}</span></b><span>좋아요 / 별로</span></div>
+    <div class="kpi"><b>${num(cr.linked)}</b><span>혼잡도 예측 이어진 곳 (시군구 ${num(cr.sgg)})</span></div>
   </div>
 
   <div class="grid">
@@ -123,6 +126,16 @@ function render(d){
     <div class="card"><h2>지역별 수집·색인 <span class="muted" style="font-weight:400">${num(totIdx)} / ${num(totPl)}곳</span></h2><table><tr><th>지역</th><th class="n">장소</th><th class="n">상세</th><th class="n">색인</th><th></th></tr>
       ${d.areas.map(a => `<tr><td>${esc(a.name)}</td><td class="n">${num(a.places)}</td><td class="n">${num(a.detail_done)}</td><td class="n">${num(a.indexed)}</td>
         <td style="width:30%"><div class="bar" style="width:${a.places ? a.indexed / a.places * 100 : 0}%"></div></td></tr>`).join("")}
+    </table></div>
+
+    <div class="card"><h2>별로가 많은 질문 <span class="muted" style="font-weight:400">— 검색을 먼저 손볼 곳</span></h2><table><tr><th>질문</th><th class="n">별로</th><th class="n">좋아요</th></tr>
+      ${fb.bad.map(b => `<tr><td class="q">${esc(b.q)}</td><td class="n bad">${b.down}</td><td class="n">${b.up}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">없음</td></tr>`}
+    </table></div>
+
+    <div class="card" style="grid-column:span 2"><h2>최근 피드백 <span class="muted" style="font-weight:400">— 좋아요는 평가 정답 후보 (eval/from_feedback.py)</span></h2><table><tr><th>시각</th><th>질문</th><th>장소</th><th class="n"></th></tr>
+      ${fb.recent.map(r => `<tr><td>${new Date(r.ts).toLocaleString("ko-KR", {month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit"})}</td>
+        <td class="q">${esc(r.q)}</td><td class="q">${r.title ? esc(r.title) + (r.rank ? ` <span class="muted">${r.rank}위</span>` : "") : '<span class="muted">검색 전체</span>'}</td>
+        <td class="n ${r.vote < 0 ? "bad" : ""}">${r.vote > 0 ? "👍" : "👎"}</td></tr>`).join("") || `<tr><td colspan="4" class="muted">없음</td></tr>`}
     </table></div>
 
     <div class="card" style="grid-column:1/-1"><h2>최근 요청</h2><table><tr><th>시각</th><th>종류</th><th>질문/장소</th><th class="n">결과</th><th class="n">응답</th><th></th></tr>

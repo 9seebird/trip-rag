@@ -19,11 +19,11 @@ UPSERT = """
 INSERT INTO places (content_id, content_type, title, addr, addr_detail,
                     area_code, sigungu_code, cat1, cat2, cat3,
                     lat, lon, image_url, thumb_url, tel,
-                    priority, list_modified)
+                    priority, list_modified, ldong_regn, ldong_sgg)
 VALUES (%(content_id)s, %(content_type)s, %(title)s, %(addr)s, %(addr_detail)s,
         %(area_code)s, %(sigungu_code)s, %(cat1)s, %(cat2)s, %(cat3)s,
         %(lat)s, %(lon)s, %(image_url)s, %(thumb_url)s, %(tel)s,
-        %(priority)s, %(list_modified)s)
+        %(priority)s, %(list_modified)s, %(ldong_regn)s, %(ldong_sgg)s)
 ON CONFLICT (content_id) DO UPDATE SET
   title        = EXCLUDED.title,
   addr         = EXCLUDED.addr,
@@ -33,6 +33,8 @@ ON CONFLICT (content_id) DO UPDATE SET
   image_url = EXCLUDED.image_url, thumb_url = EXCLUDED.thumb_url,
   tel = EXCLUDED.tel,
   priority = EXCLUDED.priority,
+  ldong_regn = coalesce(EXCLUDED.ldong_regn, places.ldong_regn),
+  ldong_sgg  = coalesce(EXCLUDED.ldong_sgg, places.ldong_sgg),
   -- 원본이 갱신됐으면 상세를 다시 받아야 한다
   detail_status = CASE WHEN places.list_modified IS DISTINCT FROM EXCLUDED.list_modified
                        THEN 'pending' ELSE places.detail_status END,
@@ -73,6 +75,9 @@ def row_of(it, priority):
         tel=(it.get("tel") or "").strip() or None,
         priority=priority,
         list_modified=it.get("modifiedtime") or None,
+        # 법정동 코드 — 관광지 집중률(혼잡도) API 가 이 코드로만 받는다
+        ldong_regn=(str(it.get("lDongRegnCd") or "").strip() or None),
+        ldong_sgg=(str(it.get("lDongSignguCd") or "").strip() or None),
     )
 
 

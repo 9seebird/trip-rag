@@ -18,6 +18,7 @@ from ingest.bizrouter import embed, rerank, to_pgvector
 from ingest.config import EMBED_MODEL
 
 from .extract import extract
+from .hours import parse as parse_hours
 
 # 서비스 화면에서 리랭크를 기다리는 최대 시간(초). 넘으면 벡터 순서로 보여준다.
 # Gemini 생성 모델로 순위를 매기면 20~40초가 걸리기도 해서 둔 상한.
@@ -138,7 +139,39 @@ def _row(r):
         "pet_info": r.get("pet_info"), "access_info": r.get("access_info"),
         "stroller_ok": r.get("stroller_ok"), "wheelchair_ok": r.get("wheelchair_ok"),
         "access_listed": r.get("access_listed"),
+        # 운영시간·쉬는 요일을 계산 가능한 값으로 ('오늘 휴무' 배지, 코스 도착 시각 경고). 못 읽으면 None
+        "hours": parse_hours(r.get("usetime"), r.get("restdate")),
     }
+
+
+def crowd_level(rate):
+    if rate is None:
+        return None
+    return "여유" if rate < 50 else ("보통" if rate < 80 else "붐빔")
+
+
+def attach_crowd(conn, items, days=7):
+    """혼잡도 예측(관광지 집중률)을 붙인다. 이어진 관광지만 — 나머지는 crowd 가 없다.
+    오늘부터 days 일. 화면이 오늘/코스 날짜 값을 고른다."""
+    ids = [i["content_id"] for i in items if i.get("content_type") in (12, 14, 28)]
+    if not ids:
+        return items
+    try:
+        rows = conn.execute("""
+            SELECT content_id, to_char(ymd, 'YYYY-MM-DD') d, rate FROM crowd_forecast
+            WHERE content_id = ANY(%s) AND ymd >= (now() AT TIME ZONE 'Asia/Seoul')::date
+              AND ymd < (now() AT TIME ZONE 'Asia/Seoul')::date + %s
+            ORDER BY content_id, ymd""", (ids, days)).fetchall()
+    except Exception:                    # 표가 아직 없으면(마이그레이션 전) 그냥 넘어간다 (autocommit 이라 되돌릴 것 없음)
+        return items
+    by = {}
+    for r in rows:
+        by.setdefault(r["content_id"], []).append([r["d"], round(float(r["rate"]), 1) if r["rate"] is not None else None])
+    for it in items:
+        days_ = by.get(it["content_id"])
+        if days_:
+            it["crowd"] = days_
+    return items
 
 
 def keyword_search(conn, q, limit=8, filters=None):
@@ -316,13 +349,17 @@ def run(conn, q, limit=8, compare="keyword", use_filters=True, pool=30, override
     return out
 
 
-def find(conn, q, limit=12, pool=30, overrides=None, use_rerank=True, near=None, hybrid=True):
+def find(conn, q, limit=12, pool=30, overrides=None, use_rerank=True, near=None, hybrid=True, off=()):
     """서비스 화면용: 조건 필터 + 벡터 + 리랭커 한 줄. 비교용 대조군(키워드)은 돌리지 않는다.
 
     near = (위도, 경도, 반경km) 이면 그 반경 안에서만. 이때 지역 조건(질문 속 '부산' 등)은 쓰지 않는다.
+    off  = 질문에서 뽑았지만 사용자가 화면의 조건 칩에서 끈 것 ('area', 'indoor' …).
+    overrides = 사용자가 칩으로 직접 켠 조건 (질문에서 뽑은 것보다 우선).
     """
     ex = extract(q)
-    filters = dict(ex["filters"])
+    off = set(off or ())
+    ex["why"] = [w for w in ex["why"] if w["field"] not in off]
+    filters = {k: v for k, v in ex["filters"].items() if k not in off}
     if overrides:
         filters.update({k: v for k, v in overrides.items() if v is not None})
     if near:
@@ -344,7 +381,7 @@ def find(conn, q, limit=12, pool=30, overrides=None, use_rerank=True, near=None,
             items = apply_rerank(conn, q, cand, limit, timeout=RERANK_TIMEOUT)
         except Exception:                 # 리랭커가 죽어도 벡터 순서로는 보여준다
             items = cand[:limit]
-    items = strip_private(items)
+    items = attach_crowd(conn, strip_private(items))
     if near:
         for it in items:
             if it.get("lat") is not None:
@@ -357,6 +394,7 @@ def find(conn, q, limit=12, pool=30, overrides=None, use_rerank=True, near=None,
         "near": bool(near),
         "hints": [k for k in HINT_ONLY if filters.get(k)],
         "dropped_filters": dropped,
+        "off": sorted(off),
         "items": items,
         "took_ms": int((time.time() - t0) * 1000),
     }
