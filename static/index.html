@@ -278,6 +278,7 @@ body.has-result .qrow{display:none}
 @media (min-width:700px){
   .qrow{flex-wrap:wrap;overflow:visible;-webkit-mask-image:none;mask-image:none;padding-right:0}
 }
+/* '처음으로' 는 결과·코스 화면에서만, 상단 '저장' 왼쪽에 (폰·PC 같은 자리) */
 .home-btn{display:none}
 body.has-result .home-btn{display:inline-flex}
 .home{margin:6px 0 34px}
@@ -336,7 +337,7 @@ body.has-result .home{display:none}
 <div class="wrap">
   <header class="top">
     <a class="brand" href="/"><i><svg width="18" height="18" viewBox="0 0 32 32" aria-hidden="true"><path d="M7 22a9 9 0 0 1 18 0" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/><circle cx="16" cy="11" r="3" fill="#fdba74"/></svg></i>반나절<small>말로 찾는 여행 코스</small></a>
-    <nav><button type="button" class="saved-btn" id="savedBtn" aria-haspopup="dialog"></button><a href="/lab" title="검색 방식을 나란히 비교해 보는 화면">검색 실험실</a></nav>
+    <nav><button type="button" class="saved-btn home-btn" id="homeBtn" aria-label="처음 화면으로"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></svg><span>처음으로</span></button><button type="button" class="saved-btn" id="savedBtn" aria-haspopup="dialog"></button><a href="/lab" title="검색 방식을 나란히 비교해 보는 화면">검색 실험실</a></nav>
   </header>
 
   <section class="hero">
@@ -351,8 +352,6 @@ body.has-result .home{display:none}
     <div class="row">
       <button type="button" class="region-btn" id="regionBtn" aria-haspopup="dialog"></button>
       <button type="button" class="region-btn" id="nearBtn"></button>
-      <button type="button" class="region-btn home-btn" id="homeBtn" aria-label="처음 화면으로">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></svg><span>처음으로</span></button>
     </div>
     <div id="qrows"></div>
   </section>
