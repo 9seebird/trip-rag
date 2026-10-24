@@ -28,6 +28,7 @@
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
+html,body{overflow-x:clip}   /* 어떤 요소가 넘쳐도 화면 전체가 옆으로 밀리지 않게 */
 body{margin:0;background:var(--bg);color:var(--ink);
   font:15px/1.6 "Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
   letter-spacing:-.01em;word-break:keep-all}
@@ -62,10 +63,26 @@ body.has-result .hero h1, body.has-result .hero p.lead{display:none}
 .search button:disabled{opacity:.6;cursor:default}
 
 .row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:14px;max-width:760px}
-.seg{display:inline-flex;background:var(--surface-2);border-radius:999px;padding:3px}
-.seg button{border:0;background:transparent;padding:6px 14px;border-radius:999px;font-size:13.5px;color:var(--ink-2)}
-.seg button.on{background:var(--surface);color:var(--ink);font-weight:650;box-shadow:0 1px 3px rgba(0,0,0,.08)}
-.seg button small{color:var(--muted);font-size:11.5px;margin-left:3px}
+/* 지역: 버튼 하나 → 누르면 시트(폰은 아래에서 올라옴) */
+.region-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);
+  border-radius:999px;padding:7px 14px;font-size:14px;font-weight:600;color:var(--ink)}
+.region-btn:hover{border-color:var(--accent)}
+.region-btn.set{border-color:var(--accent-line);background:var(--accent-soft);color:var(--accent)}
+.region-btn svg{flex:none}
+.region-btn .x{margin-left:2px;color:var(--muted);font-weight:400}
+.rs{padding:18px 20px 22px}
+.rs-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.rs-head h2{margin:0;font-size:18px;letter-spacing:-.02em}
+.rs-head button{border:0;background:var(--surface-2);width:32px;height:32px;border-radius:50%;font-size:17px}
+.rs-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+@media (min-width:601px){.rs-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.rs-grid button{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 6px;
+  font-size:14.5px;font-weight:600;color:var(--ink);display:flex;flex-direction:column;align-items:center;gap:1px}
+.rs-grid button small{font-size:11.5px;color:var(--muted);font-weight:500}
+.rs-grid button.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.rs-grid button.all{grid-column:1/-1;flex-direction:row;justify-content:center;gap:6px}
+.rs-grid button:disabled{opacity:.45;cursor:default}
+.rs-note{margin:12px 0 0;font-size:12.5px;color:var(--muted)}
 .chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px;max-width:760px}
 .chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 13px;font-size:13.5px;color:var(--ink-2)}
 .chip:hover{border-color:var(--accent);color:var(--accent)}
@@ -137,6 +154,12 @@ body.has-result .chips{display:none}
 
 /* ── 코스 ─────────────────────────────── */
 .course-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+.ch-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;flex:none}
+@media (max-width:600px){
+  .course-head{flex-direction:column;align-items:stretch}
+  .ch-actions{justify-content:flex-start}
+  .ch-actions .btn.primary{flex:1}
+}
 .course-head h2{margin:0;font-size:22px;letter-spacing:-.03em;line-height:1.3}
 .course-head p{margin:4px 0 0;color:var(--ink-2)}
 .stats{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 18px}
@@ -204,7 +227,7 @@ footer b{color:var(--ink-2)}
              placeholder="비 오는 날 아이랑 갈 만한 실내" aria-label="어떤 곳을 찾으세요?">
       <button id="go" type="submit">찾기</button>
     </form>
-    <div class="row"><div class="seg" id="regions" aria-label="지역"></div></div>
+    <div class="row"><button type="button" class="region-btn" id="regionBtn" aria-haspopup="dialog"></button></div>
     <div class="chips" id="chips"></div>
   </section>
 
@@ -223,6 +246,7 @@ footer b{color:var(--ink-2)}
 </div>
 
 <dialog id="dlg"></dialog>
+<dialog id="regionDlg" aria-label="지역 선택"></dialog>
 
 <script>
 const $ = s => document.querySelector(s);
@@ -270,19 +294,126 @@ async function boot(){
   renderRegions();
   if (cfg.kakao_js_key) loadKakao(cfg.kakao_js_key);
 
-  const q = new URLSearchParams(location.search).get("q");
-  if (q){ $("#q").value = q; search(false); }
+  const p = new URLSearchParams(location.search);
+  const q = p.get("q");
+  if (q){ $("#q").value = q; await search(false); }
+  if (p.get("course")){                       // 공유받은 코스 링크로 바로 들어온 경우
+    view.direct = true;
+    history.replaceState({course: p.get("course")}, "", location.href);
+    course(p.get("course"));
+  }
 }
 
+// 전국 17개 시도 (TourAPI areaCode). 아직 색인이 없는 곳은 '준비 중' 으로 흐리게 보여준다
+const ALL_AREAS = [[1,"서울"],[2,"인천"],[31,"경기"],[32,"강원"],[3,"대전"],[8,"세종"],[33,"충북"],[34,"충남"],
+  [4,"대구"],[35,"경북"],[6,"부산"],[7,"울산"],[36,"경남"],[5,"광주"],[37,"전북"],[38,"전남"],[39,"제주"]];
+const PIN = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.1-7-11.5A7 7 0 0 1 19 9.5C19 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>';
+
+function areaName(code){ return (ALL_AREAS.find(a => a[0] === code) || [0, String(code)])[1]; }
+
 function renderRegions(){
-  const all = [{code: null, name: "전체"}, ...state.regions];
-  $("#regions").innerHTML = all.map(r =>
-    `<button type="button" data-a="${r.code ?? ""}" class="${(r.code ?? null) === state.area ? "on" : ""}">${esc(r.name)}${r.indexed ? `<small>${r.indexed.toLocaleString()}</small>` : ""}</button>`).join("");
-  $("#regions").querySelectorAll("button").forEach(b => b.onclick = () => {
+  const b = $("#regionBtn");
+  b.classList.toggle("set", !!state.area);
+  b.innerHTML = `${PIN}<span>지역: ${state.area ? esc(areaName(state.area)) : "전체"}</span><span class="x">▾</span>`;
+  b.setAttribute("aria-label", `지역 선택, 지금 ${state.area ? areaName(state.area) : "전체"}`);
+}
+
+function openRegions(){
+  const have = new Map(state.regions.map(r => [r.code, r]));
+  const total = state.regions.reduce((n, r) => n + (r.indexed || 0), 0);
+  const pending = ALL_AREAS.filter(([c]) => !have.has(c)).length;
+  const dlg = $("#regionDlg");
+  dlg.innerHTML = `<div class="rs">
+    <div class="rs-head"><h2>지역 선택</h2><button type="button" aria-label="닫기" data-close>×</button></div>
+    <div class="rs-grid">
+      <button type="button" class="all ${state.area ? "" : "on"}" data-a="">전체<small>${total.toLocaleString()}곳</small></button>
+      ${ALL_AREAS.map(([c, n]) => {
+        const r = have.get(c);
+        return `<button type="button" data-a="${c}" class="${state.area === c ? "on" : ""}" ${r ? "" : "disabled"}>
+          ${n}<small>${r ? r.indexed.toLocaleString() + "곳" : "준비 중"}</small></button>`;
+      }).join("")}
+    </div>
+    ${pending ? `<p class="rs-note">‘준비 중’인 지역은 매일 조금씩 모으고 있어요. 질문에 “경주”, “여수”처럼 지명을 적어도 지역을 알아들어요.</p>` : ""}
+  </div>`;
+  openSheet(dlg);
+}
+
+$("#regionBtn").onclick = openRegions;
+$("#regionDlg").addEventListener("click", async e => {
+  const b = e.target.closest("[data-a]");
+  if (b && !b.disabled){
     state.area = b.dataset.a ? Number(b.dataset.a) : null;
     renderRegions();
+    await closeSheet($("#regionDlg"));
     if ($("#q").value.trim()) search();
-  });
+    return;
+  }
+  if (e.target === e.currentTarget || e.target.closest("[data-close]")) closeSheet($("#regionDlg"));
+});
+
+// ── 화면 이동과 뒤로 가기 ───────────────────────────────────
+// 폰에서 '뒤로' 를 누르면 사이트를 나가지 않고 한 단계 전(시트 닫기 / 코스 → 목록)으로 가게
+// 시트·코스를 열 때마다 history 에 한 칸씩 쌓는다.
+let skipPop = null;                       // 우리가 부른 history.back() 이 끝나길 기다리는 중
+const view = {listY: 0};                  // 목록에서 코스로 갈 때의 스크롤 위치 (돌아오면 복원)
+
+function openSheet(d){
+  d.showModal();
+  history.pushState({...(history.state || {}), sheet: d.id}, "", location.href);
+}
+function closeSheet(d){
+  if (!d.open) return Promise.resolve();
+  d.close();
+  if (!history.state?.sheet) return Promise.resolve();
+  return new Promise(res => { skipPop = res; history.back(); });
+}
+document.querySelectorAll("dialog").forEach(d =>
+  d.addEventListener("cancel", e => { e.preventDefault(); closeSheet(d); }));   // Esc
+
+function courseUrl(id){
+  const p = new URLSearchParams(location.search);
+  id ? p.set("course", id) : p.delete("course");
+  return "?" + p.toString();
+}
+
+function openCourse(id){
+  const dlg = $("#dlg");
+  if (!history.state?.course) view.listY = window.scrollY;
+  if (dlg.open && history.state?.sheet){          // 상세 시트에서 바로 코스로: 시트 칸을 코스 칸으로 바꾼다
+    dlg.close();
+    history.replaceState({course: id}, "", courseUrl(id));
+  } else {
+    if (dlg.open) dlg.close();
+    history.pushState({course: id}, "", courseUrl(id));
+  }
+  course(id);
+}
+
+function backToList(){
+  // 목록에서 들어왔으면 뒤로 가기와 같게 (popstate 가 목록을 그린다). 링크로 바로 들어왔으면 뒤가 없으니 그 자리에서 목록으로
+  if (history.state?.course && !view.direct){ history.back(); return; }
+  view.direct = false;
+  showList();
+}
+function showList(){
+  if (new URLSearchParams(location.search).has("course")) history.replaceState(null, "", courseUrl(null));
+  renderResults();
+  requestAnimationFrame(() => window.scrollTo(0, view.listY));
+}
+
+window.addEventListener("popstate", e => {
+  if (skipPop){ const r = skipPop; skipPop = null; r(); return; }
+  const open = document.querySelector("dialog[open]");
+  if (open){ open.close(); return; }                      // 뒤로 = 시트 닫기
+  const s = e.state || {};
+  if (s.course) course(s.course);
+  else if (state.items.length) showList();
+});
+
+// 화면이 바뀌면 결과가 시작하는 곳으로 바로 (부드러운 스크롤은 내용이 바뀌는 중에 끊겨서 쓰지 않는다)
+function toResultsTop(){
+  const y = $("#understood").getBoundingClientRect().top + window.scrollY - 8;
+  window.scrollTo(0, Math.max(0, y));
 }
 
 // ── 지도 (카카오) ─────────────────────────────────────────
@@ -387,6 +518,7 @@ async function search(push = true){
   const q = $("#q").value.trim();
   if (!q) { $("#q").focus(); return; }
   if (push) history.replaceState(null, "", "?q=" + encodeURIComponent(q));
+  view.listY = 0;
   document.body.classList.add("has-result");
   $("#go").disabled = true;
   $("#understood").innerHTML = "";
@@ -398,6 +530,7 @@ async function search(push = true){
     state.items = d.items || [];
     renderUnderstood(d);
     renderResults();
+    if (push) toResultsTop();
   }catch(e){
     $("#pane").innerHTML = `<div class="empty">${esc(e.message)}</div>`;
   }finally{
@@ -409,8 +542,7 @@ function renderUnderstood(d){
   const parts = (d.extracted || []).filter(w => !(w.field === "area" && state.area)).map(w =>
     `<span class="pill" title="“${esc(w.matched)}”에서 알아들음">${esc(w.label)}</span>`);
   if (state.area){
-    const r = state.regions.find(r => r.code === state.area);
-    if (r) parts.unshift(`<span class="pill">${esc(r.name)}</span>`);
+    parts.unshift(`<span class="pill">${esc(areaName(state.area))}</span>`);
   }
   const dropped = (d.dropped_filters || []).map(f => `<span class="pill off">${FIELD[f] || f} 조건은 맞는 곳이 적어 넓혀서 찾음</span>`);
   $("#understood").innerHTML = parts.length || dropped.length
@@ -503,10 +635,11 @@ function detail(id){
         <button class="btn primary" data-course="${r.content_id}" data-close>여기서 반나절 코스</button>
       </div>
     </div></div>`;
-  dlg.showModal();
+  openSheet(dlg);
 }
 $("#dlg").addEventListener("click", e => {
-  if (e.target === e.currentTarget || e.target.closest("[data-close]")) $("#dlg").close();
+  if (e.target.closest("[data-course]")) return;      // 아래 문서 클릭 처리기가 코스로 보낸다
+  if (e.target === e.currentTarget || e.target.closest("[data-close]")) closeSheet($("#dlg"));
 });
 
 // 카카오맵 길찾기 URL: /link/by/car/출발,위도,경도/경유,위도,경도/.../도착,위도,경도
@@ -520,7 +653,7 @@ function routeLink(stops){
 async function course(id){
   document.body.classList.add("has-result");
   $("#pane").innerHTML = `<div class="empty">근처에서 볼거리·식사·카페를 골라 코스를 짜는 중이에요…</div>`;
-  window.scrollTo({top: 0, behavior: "smooth"});
+  toResultsTop();
   try{
     const d = await api(`/api/course?id=${encodeURIComponent(id)}`);
     if (d.error) throw new Error(d.error);
@@ -530,7 +663,7 @@ async function course(id){
       <div class="course-head">
         <div><h2>${esc(d.start.title)}에서 시작하는 반나절</h2>
           <p>${esc(d.summary || "가까운 곳부터 돌기 좋은 순서로 골랐어요.")}</p></div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+        <div class="ch-actions">
           <a class="btn primary" style="flex:none" target="_blank" rel="noopener" href="${routeLink(all)}">카카오맵으로 전체 경로</a>
           <button class="btn" id="back">← 목록</button>
         </div>
@@ -562,16 +695,16 @@ async function course(id){
       <div class="note">${d.source === "llm"
         ? "AI가 근처 후보 중에서 골랐고, 없는 장소를 지어내지 않도록 후보 밖 선택은 걸러냈어요."
         : "가까운 곳을 기준으로 규칙에 따라 골랐어요."} 이동 시간은 직선거리로 어림한 값이에요.</div>`;
-    $("#back").onclick = () => { renderResults(); };
+    $("#back").onclick = backToList;
     mapCourse(all);
   }catch(e){
-    $("#pane").innerHTML = `<div class="empty">코스를 짜지 못했어요: ${esc(e.message)}<br><button class="btn" style="margin-top:12px" onclick="renderResults()">목록으로</button></div>`;
+    $("#pane").innerHTML = `<div class="empty">코스를 짜지 못했어요: ${esc(e.message)}<br><button class="btn" style="margin-top:12px" onclick="backToList()">목록으로</button></div>`;
   }
 }
 
 document.addEventListener("click", e => {
   const c = e.target.closest("[data-course]");
-  if (c){ if ($("#dlg").open) $("#dlg").close(); course(c.dataset.course); return; }
+  if (c){ openCourse(c.dataset.course); return; }
   const d = e.target.closest("[data-detail]");
   if (d) detail(d.dataset.detail);
 });
