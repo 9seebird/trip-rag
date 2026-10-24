@@ -9,6 +9,7 @@
 키워드 검색은 비교 화면의 대조군이다. 대조군을 일부러 약하게 만들면 비교가 의미를 잃으므로
 조사·어미를 제대로 털어서 공정하게 맞춘다.
 """
+import math
 import re
 import time
 
@@ -77,7 +78,34 @@ def _where(f):
         where.append("p.indoor IS DISTINCT FROM %(not_indoor)s"); params["not_indoor"] = not f["indoor"]
     if f.get("pet"):
         where.append("p.pet_allowed IS NOT FALSE")
+    if f.get("near"):
+        # 내 위치 반경. 위경도 사각형으로 먼저 좁히고(인덱스) 정확한 거리로 자른다
+        lat, lon, r = f["near"]
+        dlat, dlon = r / 111.0, r / (111.0 * max(0.2, math.cos(math.radians(lat))))
+        where.append("p.lat BETWEEN %(nlat0)s AND %(nlat1)s AND p.lon BETWEEN %(nlon0)s AND %(nlon1)s")
+        where.append(f"{_KM_SQL} <= %(nr)s")
+        params.update(nlat=lat, nlon=lon, nr=r, nlat0=lat - dlat, nlat1=lat + dlat,
+                      nlon0=lon - dlon, nlon1=lon + dlon)
+    if f.get("when"):
+        # 축제 기간이 질문의 기간과 겹치는 것만. 기간을 모르는 축제는 남긴다
+        where.append("(p.content_type <> 15 OR (coalesce(p.event_start, '-infinity'::date) <= %(we)s"
+                     " AND coalesce(p.event_end, 'infinity'::date) >= %(ws)s))")
+        params.update(ws=f["when"][0], we=f["when"][1])
+    # 이미 끝난 축제는 언제나 뺀다
+    where.append("(p.content_type <> 15 OR p.event_end IS NULL OR p.event_end >= (now() AT TIME ZONE 'Asia/Seoul')::date)")
     return where, params
+
+
+_KM_SQL = """6371 * 2 * asin(sqrt(
+    power(sin(radians(p.lat - %(nlat)s) / 2), 2) +
+    cos(radians(%(nlat)s)) * cos(radians(p.lat)) * power(sin(radians(p.lon - %(nlon)s) / 2), 2)))"""
+
+
+def km_between(a_lat, a_lon, b_lat, b_lon):
+    p1, p2 = math.radians(a_lat), math.radians(b_lat)
+    h = (math.sin((p2 - p1) / 2) ** 2
+         + math.cos(p1) * math.cos(p2) * math.sin(math.radians(b_lon - a_lon) / 2) ** 2)
+    return 2 * 6371 * math.asin(math.sqrt(h))
 
 
 def _row(r):
@@ -101,6 +129,7 @@ def _row(r):
         "parking": r.get("parking"), "usefee": r.get("usefee"),
         "tel": r.get("tel") or r.get("infocenter"), "menu": r.get("menu"),
         "homepage": r.get("homepage"),
+        "event_start": r.get("event_start"), "event_end": r.get("event_end"),
     }
 
 
@@ -245,12 +274,18 @@ def run(conn, q, limit=8, compare="keyword", use_filters=True, pool=30, override
     return out
 
 
-def find(conn, q, limit=12, pool=30, overrides=None, use_rerank=True):
-    """서비스 화면용: 조건 필터 + 벡터 + 리랭커 한 줄. 비교용 대조군(키워드)은 돌리지 않는다."""
+def find(conn, q, limit=12, pool=30, overrides=None, use_rerank=True, near=None):
+    """서비스 화면용: 조건 필터 + 벡터 + 리랭커 한 줄. 비교용 대조군(키워드)은 돌리지 않는다.
+
+    near = (위도, 경도, 반경km) 이면 그 반경 안에서만. 이때 지역 조건(질문 속 '부산' 등)은 쓰지 않는다.
+    """
     ex = extract(q)
     filters = dict(ex["filters"])
     if overrides:
         filters.update({k: v for k, v in overrides.items() if v is not None})
+    if near:
+        filters["near"] = near
+        filters.pop("area", None)
     t0 = time.time()
     cand, filters, dropped = filtered_candidates(conn, q, pool, filters)
     items = cand[:limit]
@@ -259,12 +294,19 @@ def find(conn, q, limit=12, pool=30, overrides=None, use_rerank=True):
             items = apply_rerank(conn, q, cand, limit, timeout=RERANK_TIMEOUT)
         except Exception:                 # 리랭커가 죽어도 벡터 순서로는 보여준다
             items = cand[:limit]
+    items = strip_private(items)
+    if near:
+        for it in items:
+            if it.get("lat") is not None:
+                it["dist_km"] = round(km_between(near[0], near[1], it["lat"], it["lon"]), 1)
     return {
         "query": q,
-        "extracted": ex["why"],
-        "filters": {k: v for k, v in filters.items() if v not in (None, False) and k not in HINT_ONLY},
+        "extracted": [w for w in ex["why"] if not (near and w["field"] == "area")],
+        "filters": {k: v for k, v in filters.items()
+                    if v not in (None, False) and k not in HINT_ONLY and k != "near"},
+        "near": bool(near),
         "hints": [k for k in HINT_ONLY if filters.get(k)],
         "dropped_filters": dropped,
-        "items": strip_private(items),
+        "items": items,
         "took_ms": int((time.time() - t0) * 1000),
     }

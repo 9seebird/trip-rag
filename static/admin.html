@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>반나절 관리</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+:root{--bg:#f6f5f1;--surface:#fff;--surface-2:#f0efe9;--ink:#1b1c1a;--ink-2:#4a4b47;--muted:#7a7a73;--line:#e4e2da;
+  --accent:#0f766e;--accent-soft:#e3f1ee;--warm:#ea580c;--warm-soft:#fdeee3;--bad:#b91c1c;--bad-soft:#fdecec}
+@media (prefers-color-scheme:dark){:root{--bg:#121412;--surface:#1b1e1c;--surface-2:#232725;--ink:#ecece6;--ink-2:#c4c5bd;
+  --muted:#91928a;--line:#2e3330;--accent:#2dd4bf;--accent-soft:#12302c;--warm:#fb923c;--warm-soft:#3a2416;--bad:#f87171;--bad-soft:#3a1a1a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.6 "Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;word-break:keep-all}
+.wrap{max-width:1200px;margin:0 auto;padding:24px 20px 60px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+h1{font-size:20px;margin:0}
+h2{font-size:15px;margin:0 0 10px}
+.muted{color:var(--muted)}
+select,button,input{font:inherit;color:inherit}
+select,input{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 10px}
+button{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 12px;cursor:pointer}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.kpi b{display:block;font-size:22px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.kpi span{font-size:12.5px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td.q{white-space:normal;min-width:160px}
+th{color:var(--muted);font-weight:600}
+td.n{text-align:right}
+.bar{height:8px;border-radius:4px;background:var(--accent);min-width:2px}
+.bad{color:var(--bad)}
+.pill{display:inline-block;font-size:11.5px;padding:0 7px;border-radius:999px;background:var(--surface-2);color:var(--ink-2)}
+.pill.c{background:var(--accent-soft);color:var(--accent)}
+.pill.x{background:var(--bad-soft);color:var(--bad)}
+.login{max-width:360px;margin:12vh auto;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px}
+.login input{width:100%;margin:10px 0}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const num = n => (n ?? 0).toLocaleString();
+let token = "";
+try { token = sessionStorage.getItem("admtok") || ""; } catch {}
+
+function login(msg){
+  $("#app").innerHTML = `<form class="login" id="lf"><h1>반나절 관리</h1>
+    <p class="muted">서버 .env 의 ADMIN_TOKEN 을 넣어 주세요. 이 탭을 닫으면 잊어요.</p>
+    ${msg ? `<p class="bad">${esc(msg)}</p>` : ""}
+    <input type="password" id="tk" autocomplete="current-password" placeholder="관리 토큰" required><button>들어가기</button></form>`;
+  $("#lf").onsubmit = e => { e.preventDefault(); token = $("#tk").value.trim(); try { sessionStorage.setItem("admtok", token); } catch {} load(); };
+}
+
+async function load(days = 7){
+  if (!token) return login();
+  const r = await fetch(`/api/admin/stats?days=${days}`, {headers: {"X-Admin-Token": token}});
+  if (r.status === 401){ try { sessionStorage.removeItem("admtok"); } catch {} return login("토큰이 맞지 않아요."); }
+  if (!r.ok) return login(`불러오지 못했어요 (${r.status})`);
+  render(await r.json());
+}
+
+function render(d){
+  const finds = d.daily.filter(x => x.kind === "find"), courses = d.daily.filter(x => x.kind === "course");
+  const sum = (a, k) => a.reduce((n, x) => n + (+x[k] || 0), 0);
+  const nF = sum(finds, "n"), nC = sum(courses, "n"), cached = sum(d.daily, "cached"), all = sum(d.daily, "n");
+  const fails = sum(d.daily, "failed");
+  const avg = finds.length ? Math.round(finds.reduce((n, x) => n + (+x.avg_ms || 0) * (x.n - x.cached), 0) /
+                                         Math.max(1, finds.reduce((n, x) => n + (x.n - x.cached), 0))) : 0;
+  const zeroN = d.zero.reduce((n, x) => n + x.n, 0);
+  const days = [...new Set(d.daily.map(x => x.d))];
+  const maxDay = Math.max(1, ...days.map(dd => sum(d.daily.filter(x => x.d === dd), "n")));
+  const gem = d.models_today.filter(m => m.api !== "tour");
+  const totIdx = d.areas.reduce((n, a) => n + a.indexed, 0), totPl = d.areas.reduce((n, a) => n + a.places, 0);
+
+  $("#app").innerHTML = `
+  <header><h1>반나절 관리 <span class="muted" style="font-size:13px;font-weight:400">최근 ${d.days}일</span></h1>
+    <div><select id="days">${[1, 7, 30].map(n => `<option value="${n}" ${n === d.days ? "selected" : ""}>${n}일</option>`).join("")}</select>
+    <button id="rf">새로고침</button> <button id="lo">나가기</button></div></header>
+
+  <div class="kpis">
+    <div class="kpi"><b>${num(nF)}</b><span>검색</span></div>
+    <div class="kpi"><b>${num(nC)}</b><span>코스</span></div>
+    <div class="kpi"><b>${all ? Math.round(cached / all * 100) : 0}%</b><span>캐시 적중 (모델 호출 아낌)</span></div>
+    <div class="kpi"><b>${num(avg)}ms</b><span>검색 평균 응답 (캐시 제외)</span></div>
+    <div class="kpi"><b class="${zeroN ? "bad" : ""}">${num(zeroN)}</b><span>결과 0건 검색</span></div>
+    <div class="kpi"><b class="${fails ? "bad" : ""}">${num(fails)}</b><span>실패</span></div>
+    <div class="kpi"><b>${num(d.tour_calls_today)}</b><span>오늘 TourAPI 호출</span></div>
+    <div class="kpi"><b>${num(d.festivals.upcoming)}</b><span>진행·예정 축제</span></div>
+  </div>
+
+  <div class="grid">
+    <div class="card"><h2>날짜별</h2><table><tr><th>날짜</th><th></th><th class="n">검색</th><th class="n">코스</th><th class="n">캐시</th><th class="n">p90</th></tr>
+      ${days.map(dd => { const f = finds.find(x => x.d === dd) || {}, c = courses.find(x => x.d === dd) || {};
+        const n = (f.n || 0) + (c.n || 0);
+        return `<tr><td>${dd}</td><td style="width:40%"><div class="bar" style="width:${n / maxDay * 100}%"></div></td>
+          <td class="n">${num(f.n)}</td><td class="n">${num(c.n)}</td><td class="n">${num((f.cached || 0) + (c.cached || 0))}</td>
+          <td class="n">${f.p90_ms != null ? num(f.p90_ms) + "ms" : "-"}</td></tr>`; }).join("") || `<tr><td colspan="6" class="muted">기록 없음</td></tr>`}
+    </table></div>
+
+    <div class="card"><h2>결과 0건 질문 <span class="muted" style="font-weight:400">— 규칙·데이터를 보강할 곳</span></h2><table><tr><th>질문</th><th class="n">횟수</th></tr>
+      ${d.zero.map(z => `<tr><td class="q">${esc(z.q)}</td><td class="n">${z.n}</td></tr>`).join("") || `<tr><td colspan="2" class="muted">없음</td></tr>`}
+    </table></div>
+
+    <div class="card"><h2>많이 찾은 질문</h2><table><tr><th>질문</th><th class="n">횟수</th><th class="n">결과</th></tr>
+      ${d.top.map(t => `<tr><td class="q">${esc(t.q)}</td><td class="n">${t.n}</td><td class="n">${t.results ?? "-"}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">없음</td></tr>`}
+    </table></div>
+
+    <div class="card"><h2>오늘 모델·외부 API 호출</h2><table><tr><th>API</th><th>작업</th><th class="n">호출</th><th class="n">실패</th><th class="n">평균</th></tr>
+      ${d.models_today.map(m => `<tr><td>${esc(m.api)}</td><td>${esc(m.op)}</td><td class="n">${num(m.n)}</td>
+        <td class="n ${m.failed ? "bad" : ""}">${num(m.failed)}</td><td class="n">${num(m.avg_ms)}ms</td></tr>`).join("") || `<tr><td colspan="5" class="muted">없음</td></tr>`}
+    </table><p class="muted" style="margin:8px 0 0">캐시 ${d.cache.map(c => `${esc(c.kind)} ${num(c.n)}`).join(" · ") || "비어 있음"} · 요청 제한 오늘 ${num(d.requests.today)}/${num(d.requests.daily_limit)}</p></div>
+
+    <div class="card"><h2>지역별 수집·색인 <span class="muted" style="font-weight:400">${num(totIdx)} / ${num(totPl)}곳</span></h2><table><tr><th>지역</th><th class="n">장소</th><th class="n">상세</th><th class="n">색인</th><th></th></tr>
+      ${d.areas.map(a => `<tr><td>${esc(a.name)}</td><td class="n">${num(a.places)}</td><td class="n">${num(a.detail_done)}</td><td class="n">${num(a.indexed)}</td>
+        <td style="width:30%"><div class="bar" style="width:${a.places ? a.indexed / a.places * 100 : 0}%"></div></td></tr>`).join("")}
+    </table></div>
+
+    <div class="card" style="grid-column:1/-1"><h2>최근 요청</h2><table><tr><th>시각</th><th>종류</th><th>질문/장소</th><th class="n">결과</th><th class="n">응답</th><th></th></tr>
+      ${d.recent.map(r => `<tr><td>${new Date(r.ts).toLocaleString("ko-KR", {month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit"})}</td>
+        <td>${r.kind === "find" ? "검색" : "코스"}</td><td class="q">${esc(r.q)}${r.near ? ' <span class="pill">내 근처</span>' : ""}</td>
+        <td class="n">${r.results ?? "-"}</td><td class="n">${r.took_ms != null ? num(r.took_ms) + "ms" : "-"}</td>
+        <td>${r.cached ? '<span class="pill c">캐시</span>' : ""}${r.ok ? "" : `<span class="pill x" title="${esc(r.note)}">실패</span>`}${r.note && r.ok ? `<span class="pill">${esc(r.note)}</span>` : ""}</td></tr>`).join("")}
+    </table></div>
+  </div>`;
+  $("#days").onchange = e => load(+e.target.value);
+  $("#rf").onclick = () => load(d.days);
+  $("#lo").onclick = () => { token = ""; try { sessionStorage.removeItem("admtok"); } catch {} login(); };
+}
+load();
+</script>
+</body>
+</html>

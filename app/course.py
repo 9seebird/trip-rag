@@ -4,7 +4,7 @@
 모델에게 "제주 코스 짜줘" 라고만 하면 없는 장소를 지어낸다.
 
     기준 장소
-     └→ 칸(slot)별 후보   코드. 반경 안에서 유형별로 가까운 3곳씩 (없으면 반경을 넓힌다)
+     └→ 칸(slot)별 후보   코드. 반경 안에서 유형별로 가까운 4곳씩 (없으면 반경을 넓힌다. 남은 후보는 화면의 바꾸기용)
          └→ 고르기·순서   모델. 칸마다 1곳, 방문 순서, 한 줄 이유 (JSON)
              └→ 검증       코드. 후보 밖 id·중복·빠진 칸이 있으면 모델 결과를 버리고 규칙으로 대체
                  └→ 계산   코드. 구간 거리·이동 시간·체류 시간, 그리고 '최단 순서' 와 비교
@@ -156,7 +156,7 @@ def _place(conn, cid):
         " indoor, baby_ok, area_code FROM places WHERE content_id = %s", (cid,)).fetchone()
 
 
-def candidates(conn, anchor, slot, radius, exclude, k=3):
+def candidates(conn, anchor, slot, radius, exclude, k=4):
     base = slot.rstrip("0123456789")
     _, types, cafe, _ = SLOTS[base]
     cafe_sql = ""
@@ -236,7 +236,8 @@ def _stop(p, slot, reason, prev, kmh=CAR_KMH):
     return {
         "content_id": p["content_id"], "title": p["title"],
         "type": TYPE_NAME.get(p["content_type"], str(p["content_type"])),
-        "slot": base, "slot_name": SLOTS[base][0],
+        "slot": base, "slot_key": slot, "slot_name": SLOTS[base][0],
+        "content_type": p["content_type"],
         "addr": p.get("addr"), "image": p.get("image_url"), "lat": p["lat"], "lon": p["lon"],
         "indoor": p.get("indoor"), "baby_ok": p.get("baby_ok"),
         "snippet": (ov[:120] + "…") if len(ov) > 120 else ov,
@@ -294,8 +295,10 @@ def build(conn, content_id, radius=5.0, use_llm=True):
         "summary": summary,
         "source": source,                     # llm | rule
         "issues": issues,                     # 후보 밖 id·중복·빠진 칸 (근거 충실도)
-        "candidates": {s: [{"content_id": p["content_id"], "title": p["title"], "km": round(p["km"], 1)}
-                           for p in ps] for s, ps in cands.items()},
+        # 칸마다 후보 전부 (화면의 '다른 곳으로 바꾸기' 가 쓴다). 구간 거리는 화면이 순서에 맞춰 다시 계산한다
+        "candidates": {s: [_stop(p, s, "", anchor, kmh) | {"km": round(p["km"], 1)} for p in ps]
+                       for s, ps in cands.items()},
+        "kmh": kmh, "road_factor": ROAD_FACTOR,
         "radius_km": radii,
         "totals": {
             "move_km": round(route_km(anchor, picked), 1),

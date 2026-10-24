@@ -3,10 +3,11 @@
 하는 일
   1. 지정한 지역(--areas)의 목록을 아직 다 받지 못했으면 목록부터 받는다 (지역당 수 회~수십 회).
      다 받았는지는 area_lists 표가 기억한다. 받다가 한도에 걸리면 다음 날 그 지역 목록을 다시 받는다.
-  2. 상세(detailCommon2) → 소개정보(detailIntro2) 순으로 남은 한도만큼 이어서 받는다.
+  2. 기간 축제(searchFestival2)를 받아 축제 기간을 적는다.
+  3. 상세(detailCommon2) → 소개정보(detailIntro2) 순으로 남은 한도만큼 이어서 받는다.
      어디까지 했는지는 DB(detail_status, intro_status)가 기억하므로 매일 돌리면 알아서 이어간다.
      순서는 유형 우선순위(관광지·문화시설 → 레포츠 → 축제 → 음식점)가 먼저, 같은 유형 안에서는 --areas 순서.
-  3. 지역별로 남은 건수를 찍고 끝난다.
+  4. 지역별로 남은 건수를 찍고 끝난다.
 
 실내/실외 판정(enrich)과 색인(build_index)은 이 스크립트가 아니라 daily_collect.sh 가 이어서 부른다.
 
@@ -87,6 +88,8 @@ def main():
                 break
             conn.execute("UPDATE area_lists SET done = TRUE, done_at = now() WHERE area_code = %s", (a,))
 
+    # 기간 축제 — 목록 API 로는 축제 기간이 안 와서 따로 받는다 (지역마다 1~3회)
+    step("ingest.fetch_festival", "--areas", area_arg)
     step("ingest.fetch_detail", "--budget", str(TOUR_DAILY_LIMIT), "--areas", area_arg)
     step("ingest.fetch_intro", "--budget", str(TOUR_DAILY_LIMIT), "--areas", area_arg)
 

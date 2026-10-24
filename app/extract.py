@@ -7,6 +7,9 @@
 "제주"를 벡터로 찾으면 강원도가 올라오고, "실내"를 벡터로 찾으면 카약이 올라온다.
 """
 import re
+from datetime import date, datetime, timedelta, timezone
+
+KST = timezone(timedelta(hours=9))
 
 # 한국어는 띄어쓰기로 낱말이 안 갈린다. "아이" 를 그냥 찾으면 "아이스뮤지엄" 에 걸리고,
 # "아기" 는 "아기자기" 에, "회" 는 "사회"·"회색" 에 걸린다. (2차 평가에서 q01·q06·q20 이 이걸로 0점)
@@ -78,13 +81,34 @@ AREA_NAME = {1: "서울", 2: "인천", 3: "대전", 4: "대구", 5: "광주", 6:
              31: "경기", 32: "강원", 33: "충북", 34: "충남", 35: "경북", 36: "경남", 37: "전북",
              38: "전남", 39: "제주"}
 
+# 언제 — 축제·행사를 물을 때만 쓴다 ("이번 주말 축제"). 기간이 겹치는 축제만 남긴다.
+# 다른 질문의 "오늘" 은 날씨·기분 얘기인 경우가 많아 조건으로 걸지 않는다.
+def _weekend(d, skip=0):
+    sat = d + timedelta(days=(5 - d.weekday()) % 7)        # 토요일 (오늘이 일요일이면 다음 주 토요일)
+    if d.weekday() == 6 and skip == 0:                     # 일요일엔 '이번 주말' = 오늘
+        return d, d
+    sat += timedelta(days=7 * skip)
+    return sat, sat + timedelta(days=1)
+
+
+WHEN_RULES = [
+    (r"다음\s*주\s*말", lambda d: _weekend(d, 1), "다음 주말"),
+    (r"(이번\s*)?주말", lambda d: _weekend(d), "이번 주말"),
+    (r"다음\s*주", lambda d: (d + timedelta(days=7 - d.weekday()), d + timedelta(days=13 - d.weekday())), "다음 주"),
+    (r"이번\s*주", lambda d: (d, d + timedelta(days=6 - d.weekday())), "이번 주"),
+    (r"이번\s*달|이달", lambda d: (d, (d.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)), "이번 달"),
+    (r"내일", lambda d: (d + timedelta(days=1), d + timedelta(days=1)), "내일"),
+    (r"오늘|지금", lambda d: (d, d), "오늘"),
+]
+
+
 # 조건으로 뺀 낱말은 의미 검색에서 빼도 되지만, 남겨두는 게 대체로 낫다.
 # 그래서 기본은 원문 그대로 임베딩하고, strip=True 일 때만 지운다.
 
 
-def extract(q, strip=False):
+def extract(q, strip=False, today=None):
     q = q or ""
-    found = {"area": None, "indoor": None, "pet": False, "baby": False, "types": None}
+    found = {"area": None, "indoor": None, "pet": False, "baby": False, "types": None, "when": None}
     why = []
 
     for name, value, pat, label in RULES:
@@ -101,6 +125,18 @@ def extract(q, strip=False):
             found["types"] = types
             why.append({"field": "types", "value": types, "label": label, "matched": m.group(0)})
             break
+
+    if found["types"] == [15]:                       # 축제를 물을 때만 '언제' 를 본다
+        d = today or datetime.now(KST).date()
+        for pat, fn, label in WHEN_RULES:
+            m = re.search(pat, q)
+            if m:
+                start, end = fn(d)
+                found["when"] = (start.isoformat(), end.isoformat())
+                span = f"{start.month}/{start.day}" + ("" if start == end else f"~{end.month}/{end.day}")
+                why.append({"field": "when", "value": found["when"], "label": f"{label} ({span})",
+                            "matched": m.group(0)})
+                break
 
     for pat, area, label in AREA_RULES:
         m = re.search(pat, q)

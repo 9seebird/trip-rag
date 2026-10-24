@@ -60,6 +60,27 @@ CASES = [
 ]
 
 
+# '언제' — 축제를 물을 때만, 기준일 2026-10-24(토)
+from datetime import date as _d
+WHEN_CASES = [
+    ("이번 주말 축제",        ("2026-10-24", "2026-10-25")),
+    ("다음 주말 부산 축제",   ("2026-10-31", "2026-11-01")),
+    ("오늘 하는 행사",        ("2026-10-24", "2026-10-24")),
+    ("이번 달 축제",          ("2026-10-24", "2026-10-31")),
+    ("오늘 비 오는데 실내",   None),          # 축제가 아니면 날짜 조건 없음
+]
+
+
+def check_when():
+    bad = 0
+    for q, want in WHEN_CASES:
+        got = extract(q, today=_d(2026, 10, 24))["filters"]["when"]
+        ok = got == want
+        bad += not ok
+        print(f"  {'ok ' if ok else 'FAIL'} {q}" + ("" if ok else f"   {got} != {want}"))
+    return bad
+
+
 def main():
     bad = 0
     for q, want in CASES:
@@ -68,7 +89,9 @@ def main():
         mark = "ok " if not diff else "FAIL"
         bad += bool(diff)
         print(f"  {mark} {q}" + (f"   {diff}" if diff else ""))
-    print(f"\n{len(CASES) - bad}/{len(CASES)} 통과")
+    bad += check_when()
+    n = len(CASES) + len(WHEN_CASES)
+    print(f"\n{n - bad}/{n} 통과")
     raise SystemExit(1 if bad else 0)
 
 
