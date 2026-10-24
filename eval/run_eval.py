@@ -16,7 +16,8 @@ import time
 import yaml
 
 from app.extract import extract
-from app.search import keyword_search, vector_candidates, apply_rerank, filtered_candidates
+from app.search import (keyword_search, vector_candidates, apply_rerank, filtered_candidates,
+                        hybrid_candidates, rrf)
 from ingest.config import EMBED_MODEL
 from ingest.db import connect
 
@@ -40,6 +41,12 @@ def make_configs(conn, available_models):
     cfg["벡터+조건필터+리랭커"] = lambda q: [
         r["content_id"] for r in apply_rerank(
             conn, q, filtered_candidates(conn, q, 30, extract(q)["filters"])[0], 10)]
+
+    # 하이브리드 — 서비스 화면(/api/find)이 쓰는 방식. 키워드와 의미의 순위를 RRF 로 합친다
+    cfg["하이브리드"] = lambda q: [
+        r["content_id"] for r in rrf(vector_candidates(conn, q, 30), keyword_search(conn, q, 30))[:10]]
+    cfg["하이브리드+조건필터"] = lambda q: [
+        r["content_id"] for r in hybrid_candidates(conn, q, 30, extract(q)["filters"])[0][:10]]
 
     # 제목 접두 대조군 (build_index --no-header --variant noheader 로 만들어 둔 경우에만)
     noheader = f"{EMBED_MODEL}#noheader"

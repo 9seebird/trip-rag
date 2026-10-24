@@ -23,6 +23,9 @@ RULES = [
     ("pet",    True,  r"(강아지|반려견|애견|반려동물|멍멍이|(?<![가-힣])펫" + _JOSA + r")", "반려동물 동반"),
     ("baby",   True,  r"((?:아이|애기|아기)" + _JOSA +
                       r"|유아|어린이|아동|키즈|초등학생|꼬마|(?<![가-힣])애들" + _JOSA + r")", "아이 동반"),
+    # 무장애 여행 목록(KorWithService2)에 있는 곳. '장애' 만 쓰면 '장애물'·'장애 없이' 에 걸려 낱말을 좁힌다
+    ("access", True,  r"(휠체어|장애인|무장애|배리어\s*프리|거동이?\s*불편|보행\s*약자|노약자|어르신|부모님\s*모시고)",
+     "무장애"),
 ]
 
 TYPE_RULES = [
@@ -108,7 +111,8 @@ WHEN_RULES = [
 
 def extract(q, strip=False, today=None):
     q = q or ""
-    found = {"area": None, "indoor": None, "pet": False, "baby": False, "types": None, "when": None}
+    found = {"area": None, "indoor": None, "pet": False, "baby": False, "access": False, "types": None,
+             "when": None}
     why = []
 
     for name, value, pat, label in RULES:

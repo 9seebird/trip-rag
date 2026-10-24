@@ -10,6 +10,7 @@
 조사·어미를 제대로 털어서 공정하게 맞춘다.
 """
 import math
+import os
 import re
 import time
 
@@ -77,7 +78,11 @@ def _where(f):
     if f.get("indoor") is not None:
         where.append("p.indoor IS DISTINCT FROM %(not_indoor)s"); params["not_indoor"] = not f["indoor"]
     if f.get("pet"):
-        where.append("p.pet_allowed IS NOT FALSE")
+        # 반려동물 동반여행 목록(KorPetTourService2)에 있는 곳만. 목록을 아직 못 받은 지역이면 후보가 말라
+        # filtered_candidates 가 이 조건부터 푼다(SOFT_FILTERS)
+        where.append("p.pet_allowed IS TRUE")
+    if f.get("access"):
+        where.append("p.access_listed IS TRUE")      # 무장애 여행 목록(KorWithService2)
     if f.get("near"):
         # 내 위치 반경. 위경도 사각형으로 먼저 좁히고(인덱스) 정확한 거리로 자른다
         lat, lon, r = f["near"]
@@ -130,6 +135,9 @@ def _row(r):
         "tel": r.get("tel") or r.get("infocenter"), "menu": r.get("menu"),
         "homepage": r.get("homepage"),
         "event_start": r.get("event_start"), "event_end": r.get("event_end"),
+        "pet_info": r.get("pet_info"), "access_info": r.get("access_info"),
+        "stroller_ok": r.get("stroller_ok"), "wheelchair_ok": r.get("wheelchair_ok"),
+        "access_listed": r.get("access_listed"),
     }
 
 
@@ -207,7 +215,7 @@ def strip_private(items):
 
 
 HINT_ONLY = ("baby",)                 # 뽑기는 하되 SQL 로 거르지 않는 조건
-SOFT_FILTERS = ("pet", "indoor", "types")   # 먼저 푸는 순서 (약한 조건부터)
+SOFT_FILTERS = ("access", "pet", "indoor", "types")   # 먼저 푸는 순서 (약한 조건부터)
 MIN_CANDIDATES = 3
 
 
@@ -230,8 +238,36 @@ def filtered_candidates(conn, q, pool=30, filters=None, model=EMBED_MODEL):
     return cand, filters, dropped
 
 
+# ── 하이브리드 (키워드 + 의미) ──────────────────────────────────────────────────
+# 두 목록의 '순위' 만 가지고 합친다 (Reciprocal Rank Fusion). 점수 단위가 달라도(일치 낱말 수 vs 코사인)
+# 섞을 수 있고, 모델 호출이 없어 빠르다. 고유명사("천지연폭포")는 키워드가, 상황("비 오는 날")은 의미가 잡는다.
+#   점수 = Σ 가중치 / (RRF_K + 순위)
+# Gemini 리랭커가 20~40초라 꺼 둔 자리를 이게 메운다.
+RRF_K = 60
+KW_WEIGHT = float(os.getenv("HYBRID_KW_WEIGHT", "0.7"))   # 키워드는 흔한 낱말에 끌리기 쉬워 조금 낮게
+
+
+def rrf(vec, kw, k=RRF_K, kw_weight=KW_WEIGHT):
+    score, item, via = {}, {}, {}
+    for weight, lst, name in ((1.0, vec, "의미"), (kw_weight, kw, "키워드")):
+        for rank, it in enumerate(lst, 1):
+            cid = it["content_id"]
+            score[cid] = score.get(cid, 0.0) + weight / (k + rank)
+            item.setdefault(cid, it)                      # 의미 쪽 항목(조각 본문 포함)을 우선
+            via.setdefault(cid, []).append(name)
+    order = sorted(score, key=lambda c: -score[c])
+    return [dict(item[c], rrf=round(score[c], 5), via="+".join(via[c])) for c in order]
+
+
+def hybrid_candidates(conn, q, pool=30, filters=None, model=EMBED_MODEL):
+    """조건 필터 + (의미 검색 ⊕ 키워드 검색). 필터 완화는 의미 쪽 기준으로 한 번 정하고 키워드도 같은 조건으로."""
+    cand, filters, dropped = filtered_candidates(conn, q, pool, filters, model)
+    kw = keyword_search(conn, q, pool, filters)
+    return rrf(cand, kw), filters, dropped
+
+
 def run(conn, q, limit=8, compare="keyword", use_filters=True, pool=30, overrides=None):
-    """compare='keyword' → 키워드 vs 의미 / compare='rerank' → 의미 vs 의미+리랭커"""
+    """compare='keyword' → 키워드 vs 의미 / 'rerank' → 의미 vs 의미+리랭커 / 'hybrid' → 의미 vs 하이브리드"""
     ex = extract(q)
     filters = dict(ex["filters"]) if use_filters else {}
     if overrides:
@@ -255,7 +291,13 @@ def run(conn, q, limit=8, compare="keyword", use_filters=True, pool=30, override
     out["vector"] = strip_private(vec)
     out["took_ms"]["vector"] = int((t1 - t0) * 1000)
 
-    if compare == "rerank":
+    if compare == "hybrid":
+        t2 = time.time()
+        kw = keyword_search(conn, q, pool, filters if use_filters else None)
+        out["hybrid"] = strip_private(rrf(cand, kw)[:limit])
+        out["took_ms"]["hybrid"] = int((time.time() - t2) * 1000) + out["took_ms"]["vector"]
+        out["left_key"], out["right_key"] = "vector", "hybrid"
+    elif compare == "rerank":
         t2 = time.time()
         out["reranked"] = strip_private(apply_rerank(conn, q, cand, limit))
         out["took_ms"]["rerank"] = int((time.time() - t2) * 1000)
@@ -274,7 +316,7 @@ def run(conn, q, limit=8, compare="keyword", use_filters=True, pool=30, override
     return out
 
 
-def find(conn, q, limit=12, pool=30, overrides=None, use_rerank=True, near=None):
+def find(conn, q, limit=12, pool=30, overrides=None, use_rerank=True, near=None, hybrid=True):
     """서비스 화면용: 조건 필터 + 벡터 + 리랭커 한 줄. 비교용 대조군(키워드)은 돌리지 않는다.
 
     near = (위도, 경도, 반경km) 이면 그 반경 안에서만. 이때 지역 조건(질문 속 '부산' 등)은 쓰지 않는다.
@@ -287,7 +329,15 @@ def find(conn, q, limit=12, pool=30, overrides=None, use_rerank=True, near=None)
         filters["near"] = near
         filters.pop("area", None)
     t0 = time.time()
-    cand, filters, dropped = filtered_candidates(conn, q, pool, filters)
+    if hybrid:
+        cand, filters, dropped = hybrid_candidates(conn, q, pool, filters)
+    else:
+        cand, filters, dropped = filtered_candidates(conn, q, pool, filters)
+    # 반려동물·무장애 조건은 맞는 곳이 적으면 풀린다(SOFT_FILTERS). 풀렸더라도 맞는 곳은 앞으로 올린다
+    boost = [f for f, col in (("pet", "pet_allowed"), ("access", "access_listed")) if f in dropped]
+    if boost:
+        col = {"pet": "pet_allowed", "access": "access_listed"}
+        cand = sorted(cand, key=lambda it: -sum(1 for f in boost if it.get(col[f]) is True))
     items = cand[:limit]
     if use_rerank and cand:
         try:

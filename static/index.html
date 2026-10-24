@@ -8,6 +8,10 @@
 <meta property="og:title" content="반나절 — 말로 찾는 여행 코스">
 <meta property="og:description" content="상황을 말하면 갈 곳과 반나절 코스를 찾아 드립니다. 제주·부산·강원.">
 <meta name="theme-color" content="#0f766e">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="반나절">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f766e'/%3E%3Cpath d='M8 21a8 8 0 0 1 16 0' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round'/%3E%3Ccircle cx='16' cy='12' r='2.4' fill='%23fdba74'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <style>
@@ -41,7 +45,26 @@ button{font:inherit;color:inherit;cursor:pointer}
 .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:18px;text-decoration:none}
 .brand i{width:28px;height:28px;border-radius:8px;background:var(--accent);display:grid;place-items:center}
 .brand small{font-weight:500;color:var(--muted);font-size:13px;margin-left:2px}
+.top nav{display:flex;align-items:center;gap:2px}
 .top nav a{font-size:13.5px;color:var(--muted);text-decoration:none;padding:6px 10px;border-radius:8px}
+.saved-btn{display:inline-flex;align-items:center;gap:5px;border:0;background:none;font-size:13.5px;color:var(--ink-2);padding:6px 10px;border-radius:8px}
+.saved-btn:hover{background:var(--surface-2)}
+.saved-btn b{font-size:12px;background:var(--warm);color:#fff;border-radius:999px;padding:0 6px;line-height:18px}
+@media (max-width:600px){.top nav a{display:none}}
+/* 하트 */
+.heart{position:absolute;right:10px;top:10px;width:34px;height:34px;border-radius:50%;border:0;background:rgba(0,0,0,.45);
+  display:grid;place-items:center;color:#fff;z-index:1}
+.heart svg{width:18px;height:18px}
+.heart[aria-pressed="true"]{background:#fff;color:#e11d48}
+.heart[aria-pressed="true"] svg{fill:currentColor}
+.sv{padding:18px 20px 22px}
+.sv-list{display:grid;gap:8px;margin-top:6px}
+.sv-item{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:8px}
+.sv-item .thumb{width:56px;height:56px;border-radius:9px}
+.sv-item h3{margin:0;font-size:14.5px}
+.sv-item small{color:var(--muted);font-size:12px}
+.sv-item .acts{margin-left:auto;display:flex;gap:6px;flex:none}
+.sv-item .btn{padding:6px 10px;font-size:12.5px}
 .top nav a:hover{background:var(--surface-2);color:var(--ink)}
 
 /* ── 검색 영역 ─────────────────────────── */
@@ -139,6 +162,8 @@ body.has-result .chips{display:none}
 .tag.warn{background:var(--warm-soft);color:var(--warm)}
 .tag.fest{background:var(--warm-soft);color:var(--warm)}
 .tag.dist{background:var(--accent-soft);color:var(--accent)}
+.tag.pet{background:var(--olive-soft);color:var(--olive)}
+.facts-h{margin:14px 0 -6px;font-size:13px;font-weight:700;color:var(--ink-2)}
 .card h3{margin:0;font-size:16px;line-height:1.35;letter-spacing:-.02em}
 .card .addr{font-size:12.5px;color:var(--muted)}
 .card .snip{font-size:13.5px;color:var(--ink-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin:0}
@@ -240,7 +265,7 @@ footer b{color:var(--ink-2)}
 <div class="wrap">
   <header class="top">
     <a class="brand" href="/"><i><svg width="18" height="18" viewBox="0 0 32 32" aria-hidden="true"><path d="M7 22a9 9 0 0 1 18 0" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/><circle cx="16" cy="11" r="3" fill="#fdba74"/></svg></i>반나절<small>말로 찾는 여행 코스</small></a>
-    <nav><a href="/lab" title="검색 방식을 나란히 비교해 보는 화면">검색 실험실</a></nav>
+    <nav><button type="button" class="saved-btn" id="savedBtn" aria-haspopup="dialog"></button><a href="/lab" title="검색 방식을 나란히 비교해 보는 화면">검색 실험실</a></nav>
   </header>
 
   <section class="hero">
@@ -276,6 +301,7 @@ footer b{color:var(--ink-2)}
 
 <dialog id="dlg"></dialog>
 <dialog id="regionDlg" aria-label="지역 선택"></dialog>
+<dialog id="savedDlg" aria-label="가고 싶은 곳"></dialog>
 
 <script>
 const $ = s => document.querySelector(s);
@@ -287,7 +313,7 @@ const EXAMPLES = [
   "강릉 바다 보이는 산책길",
   "제주 흑돼지 맛집",
 ];
-const FIELD = {indoor:"실내/실외", pet:"반려동물", baby:"아이 동반", types:"장소 유형", area:"지역"};
+const FIELD = {indoor:"실내/실외", pet:"반려동물 동반", baby:"아이 동반", access:"무장애", types:"장소 유형", area:"지역"};
 const state = {area: null, near: null, regions: [], items: [], last: null, course: null,
                map: null, overlays: [], line: null, kakao: false};
 
@@ -374,6 +400,81 @@ function openRegions(){
 }
 
 $("#regionBtn").onclick = openRegions;
+
+// ── 가고 싶은 곳 (이 브라우저에만 저장) ─────────────────────
+const SAVE_KEY = "banajeol.saved.v1";
+const HEART = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 20s-7-4.4-9-9a4.8 4.8 0 0 1 9-3 4.8 4.8 0 0 1 9 3c-2 4.6-9 9-9 9z"/></svg>';
+let saved = [];
+try { saved = JSON.parse(localStorage.getItem(SAVE_KEY) || "[]"); } catch { saved = []; }
+const isSaved = id => saved.some(x => String(x.content_id) === String(id));
+function persist(){ try { localStorage.setItem(SAVE_KEY, JSON.stringify(saved)); } catch {} renderSavedBtn(); }
+function findItem(id){
+  const c = state.course;
+  return state.items.find(x => String(x.content_id) === String(id))
+      || (c && [c.start, ...c.stops].find(x => String(x.content_id) === String(id)))
+      || saved.find(x => String(x.content_id) === String(id));
+}
+function toggleSave(id){
+  if (isSaved(id)){ saved = saved.filter(x => String(x.content_id) !== String(id)); persist(); return false; }
+  const r = findItem(id);
+  if (!r) return false;
+  const keep = ["content_id", "title", "type", "content_type", "addr", "image", "lat", "lon", "area_code"];
+  saved.unshift(Object.fromEntries(keep.map(k => [k, r[k]])));
+  saved = saved.slice(0, 100);
+  persist(); return true;
+}
+function heartBtn(r){
+  const on = isSaved(r.content_id);
+  return `<button class="heart" type="button" data-heart="${r.content_id}" aria-pressed="${on}" aria-label="${on ? "저장 취소" : "가고 싶은 곳에 저장"}">${HEART}</button>`;
+}
+function renderSavedBtn(){
+  $("#savedBtn").innerHTML = `${HEART.replace('<svg ', '<svg width="16" height="16" ')}<span>저장</span>${saved.length ? `<b>${saved.length}</b>` : ""}`;
+}
+function openSaved(){
+  const dlg = $("#savedDlg");
+  dlg.innerHTML = `<div class="sv">
+    <div class="rs-head"><h2>가고 싶은 곳 ${saved.length ? saved.length + "곳" : ""}</h2><button type="button" aria-label="닫기" data-close>×</button></div>
+    ${saved.length ? `<div class="sv-list">${saved.map(r => `
+      <div class="sv-item">
+        <div class="thumb">${photo(r)}</div>
+        <div style="min-width:0"><h3>${esc(r.title)}</h3><small>${esc(r.type || "")} · ${esc(shortAddr(r.addr))}</small></div>
+        <div class="acts"><button class="btn primary" type="button" data-course="${r.content_id}">코스</button>
+          <button class="btn" type="button" data-unsave="${r.content_id}" aria-label="삭제">삭제</button></div>
+      </div>`).join("")}</div>
+      <p class="rs-note">이 브라우저에만 저장돼요. 다른 기기와는 공유되지 않아요.</p>`
+    : `<p class="rs-note">카드의 ♡ 를 누르면 여기에 모여요. 모아 둔 곳에서 바로 반나절 코스를 짤 수 있어요.</p>`}
+  </div>`;
+  if (!dlg.open) openSheet(dlg);
+}
+$("#savedBtn").onclick = openSaved;
+$("#savedDlg").addEventListener("click", e => {
+  const u = e.target.closest("[data-unsave]");
+  if (u){ toggleSave(u.dataset.unsave); openSaved(); syncHearts(); return; }
+  if (e.target.closest("[data-course]")) return;           // 문서 클릭 처리기가 코스로
+  if (e.target === e.currentTarget || e.target.closest("[data-close]")) closeSheet($("#savedDlg"));
+});
+function syncHearts(){
+  document.querySelectorAll("[data-heart]").forEach(b => {
+    const on = isSaved(b.dataset.heart);
+    b.setAttribute("aria-pressed", on); b.setAttribute("aria-label", on ? "저장 취소" : "가고 싶은 곳에 저장");
+  });
+  document.querySelectorAll("[data-save]").forEach(b => b.textContent = isSaved(b.dataset.save) ? "♥ 저장됨" : "♡ 저장");
+}
+document.addEventListener("click", e => {
+  const h = e.target.closest("[data-heart], [data-save]");
+  if (!h) return;
+  e.stopPropagation();
+  const id = h.dataset.heart || h.dataset.save;
+  const on = toggleSave(id);
+  syncHearts();
+  toast(on ? "가고 싶은 곳에 저장했어요" : "저장을 지웠어요");
+}, true);
+renderSavedBtn();
+
+// 홈 화면에 추가(PWA) — 화면 틀만 저장해 두고, 검색 결과(/api)는 늘 새로 받는다
+if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")){
+  addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
+}
 
 // ── 내 근처 ────────────────────────────────────────────────
 const NEAR_KM = 10;
@@ -479,13 +580,13 @@ function courseUrl(id, swaps){
 }
 
 function openCourse(id){
-  const dlg = $("#dlg");
+  const dlg = document.querySelector("dialog[open]");     // 상세·저장 목록 등 열린 시트
   if (!history.state?.course) view.listY = window.scrollY;
-  if (dlg.open && history.state?.sheet){          // 상세 시트에서 바로 코스로: 시트 칸을 코스 칸으로 바꾼다
+  if (dlg && history.state?.sheet){               // 시트에서 바로 코스로: 시트 칸을 코스 칸으로 바꾼다
     dlg.close();
     history.replaceState({course: id}, "", courseUrl(id));
   } else {
-    if (dlg.open) dlg.close();
+    if (dlg) dlg.close();
     history.pushState({course: id}, "", courseUrl(id));
   }
   course(id);
@@ -654,7 +755,9 @@ function renderUnderstood(d){
     `<span class="pill" title="“${esc(w.matched)}”에서 알아들음">${esc(w.label)}</span>`);
   if (d.near && state.near) parts.unshift(`<span class="pill">내 근처 ${state.near.r}km</span>`);
   else if (state.area) parts.unshift(`<span class="pill">${esc(areaName(state.area))}</span>`);
-  const dropped = (d.dropped_filters || []).map(f => `<span class="pill off">${FIELD[f] || f} 조건은 맞는 곳이 적어 넓혀서 찾음</span>`);
+  const dropped = (d.dropped_filters || []).map(f => `<span class="pill off">${
+    f === "pet" || f === "access" ? `${FIELD[f]} 가능한 곳이 적어 앞에 두고 넓혀서 찾음`
+                                  : `${FIELD[f] || f} 조건은 맞는 곳이 적어 넓혀서 찾음`}</span>`);
   $("#understood").innerHTML = parts.length || dropped.length
     ? `<span>이렇게 이해했어요</span>${parts.join("")}${dropped.join("")}` : "";
 }
@@ -666,8 +769,10 @@ function badges(r){
   if (r.event_start) b.push(`<span class="tag fest">${md(r.event_start)}${r.event_end && r.event_end !== r.event_start ? "~" + md(r.event_end) : ""}</span>`);
   if (r.indoor === true) b.push(`<span class="tag in">실내</span>`);
   if (r.indoor === false) b.push(`<span class="tag out">야외</span>`);
-  if (r.baby_ok === false) b.push(`<span class="tag warn">유모차 어려움</span>`);
-  if (r.baby_ok === true) b.push(`<span class="tag in">유모차 가능</span>`);
+  if (r.pet_allowed === true) b.push(`<span class="tag pet">반려동물 동반</span>`);
+  if (r.wheelchair_ok) b.push(`<span class="tag in">휠체어</span>`);
+  if (r.stroller_ok || r.baby_ok === true) b.push(`<span class="tag in">유모차</span>`);
+  else if (r.baby_ok === false) b.push(`<span class="tag warn">유모차 어려움</span>`);
   return b.join("");
 }
 
@@ -702,7 +807,7 @@ function renderResults(){
   }
   $("#pane").innerHTML = `<div class="grid">${items.map((r, i) => `
     <article class="card" data-card="${r.content_id}">
-      <div class="ph">${photo(r)}<span class="rank">${i + 1}</span></div>
+      <div class="ph">${photo(r)}<span class="rank">${i + 1}</span>${heartBtn(r)}</div>
       <div class="body">
         <div class="tags">${badges(r)}</div>
         <h3>${esc(r.title)}</h3>
@@ -730,6 +835,19 @@ function renderResults(){
 }
 
 // ── 상세 ─────────────────────────────────────────────────
+// 반려동물(detailPetTour2)·무장애(detailWithTour2) 원본 필드 → 보여줄 이름
+const PET_FIELDS = [["acmpyTypeCd", "동반 구분"], ["acmpyPsblCpam", "동반 가능 동물"], ["acmpyNeedMtr", "필요 사항"],
+  ["relaPosesFclty", "관련 시설"], ["relaFrnshPrdlst", "비치 물품"], ["relaRntlPrdlst", "대여 물품"], ["etcAcmpyInfo", "기타"]];
+const ACCESS_FIELDS = [["wheelchair", "휠체어"], ["stroller", "유모차"], ["elevator", "엘리베이터"], ["restroom", "화장실"],
+  ["parking", "장애인 주차"], ["exit", "출입 통로"], ["lactationroom", "수유실"], ["babysparechair", "유아 의자"],
+  ["helpdog", "보조견 동반"], ["guidehuman", "안내 요원"], ["audioguide", "음성 안내"], ["braileblock", "점자 블록"]];
+function factBlock(title, info, fields){
+  if (!info || typeof info !== "object") return "";
+  const rows = fields.filter(([k]) => info[k] && String(info[k]).trim());
+  if (!rows.length) return "";
+  return `<p class="facts-h">${title}</p><dl class="facts">${rows.map(([k, label]) =>
+    `<dt>${label}</dt><dd>${esc(String(info[k]).replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, ""))}</dd>`).join("")}</dl>`;
+}
 function detail(id){
   const r = state.items.find(x => String(x.content_id) === String(id));
   if (!r) return;
@@ -744,8 +862,11 @@ function detail(id){
       <h2>${esc(r.title)}</h2>
       <div class="addr" style="color:var(--muted);font-size:13.5px">${esc(r.addr)}</div>
       ${facts.length ? `<dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>` : ""}
+      ${factBlock("반려동물 동반", r.pet_info, PET_FIELDS)}
+      ${factBlock("무장애 정보", r.access_info, ACCESS_FIELDS)}
       <div class="ov">${esc(r.overview || r.snippet)}</div>
       <div class="actions">
+        <button class="btn" type="button" data-save="${r.content_id}">${isSaved(r.content_id) ? "♥ 저장됨" : "♡ 저장"}</button>
         ${r.lat ? `<a class="btn" target="_blank" rel="noopener" href="https://map.kakao.com/link/map/${encodeURIComponent(r.title)},${r.lat},${r.lon}">카카오맵</a>` : ""}
         <button class="btn primary" data-course="${r.content_id}" data-close>여기서 반나절 코스</button>
       </div>

@@ -28,6 +28,10 @@ CASES = [
     ("해운대 근처 카페",                  {"area": 6, "types": [39]}),
     ("강릉 바다 보이는 곳",               {"area": 32}),
     ("동해 바다 일출",                    {"area": None}),
+    # 무장애
+    ("휠체어 타고 갈 수 있는 바다",       {"access": True}),
+    ("부모님 모시고 갈 만한 곳",          {"access": True}),
+    ("장애물 없이 걷기 좋은 길",          {"access": False}),
     ("천지연폭포",                        {"baby": False, "pet": False, "indoor": None, "types": None}),
     # 지역 — 전국 확장
     ("서울 비 오는 날 실내 데이트",        {"area": 1, "indoor": True}),

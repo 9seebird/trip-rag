@@ -99,9 +99,9 @@ def find(
                       int((time.time() - t0) * 1000), cached=True)
             return hit | {"cached": True}
         try:
-            # Gemini 생성 모델 리랭크는 20~40초라 5초 상한에 거의 항상 걸린다 → 기다리지 않고 벡터 순서로.
+            # Gemini 생성 모델 리랭크는 20~40초라 5초 상한에 거의 항상 걸린다 → 리랭커 대신 하이브리드(키워드+의미).
             # 빠른 리랭커가 생기면 use_rerank=True 로 되돌린다 (상한은 search.RERANK_TIMEOUT).
-            out = run_find(conn, qn, limit, overrides={"area": area}, use_rerank=False, near=near)
+            out = run_find(conn, qn, limit, overrides={"area": area}, use_rerank=False, near=near, hybrid=True)
         except Exception as e:
             cache.log(conn, "find", qn, area, bool(near), None, int((time.time() - t0) * 1000),
                       ok=False, note=str(e))
@@ -122,7 +122,7 @@ def get_weather(lat: float = Query(..., ge=33, le=39), lon: float = Query(..., g
 def search(
     q: str = Query(..., min_length=1, max_length=100),
     limit: int = Query(8, ge=1, le=20),
-    compare: str = Query("keyword", pattern="^(keyword|rerank)$"),
+    compare: str = Query("keyword", pattern="^(keyword|rerank|hybrid)$"),
     filters: bool = True,
     pool: int = 30,
     area: int | None = None,
@@ -209,12 +209,16 @@ def admin_stats(days: int = Query(7, ge=1, le=60), x_admin_token: str | None = H
                                 count(*) FILTER (WHERE event_end IS NOT NULL) dated
                          FROM places WHERE content_type = 15""")[0]
         cache_rows = q("SELECT kind, count(*) n FROM api_cache GROUP BY kind ORDER BY kind")
+        extras = q("""SELECT count(*) FILTER (WHERE pet_allowed) pet,
+                             count(*) FILTER (WHERE access_listed) access,
+                             count(*) FILTER (WHERE image_url IS NULL) no_image
+                      FROM places""")[0]
         tour = conn.execute("SELECT used FROM tour_quota_today").fetchone()["used"]
     for a in areas:
         a["name"] = AREA_NAME.get(a["area_code"], str(a["area_code"]))
     return {"days": days, "daily": daily, "top": top, "zero": zero, "recent": recent,
             "models_today": models, "tour_calls_today": tour, "areas": areas,
-            "festivals": festivals, "cache": cache_rows, "requests": limits.usage()}
+            "festivals": festivals, "extras": extras, "cache": cache_rows, "requests": limits.usage()}
 
 
 @app.get("/admin")
@@ -222,6 +226,12 @@ def admin_page():
     if not ADMIN_TOKEN:
         raise HTTPException(404)
     return FileResponse("static/admin.html")
+
+
+@app.get("/manifest.webmanifest")
+def manifest():
+    """홈 화면에 추가(PWA). 확장자를 모르는 서버가 text/plain 으로 주면 일부 브라우저가 무시해서 직접 준다."""
+    return FileResponse("static/manifest.webmanifest", media_type="application/manifest+json")
 
 
 @app.get("/lab")

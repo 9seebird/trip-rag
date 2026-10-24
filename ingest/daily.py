@@ -7,7 +7,8 @@
   3. 상세(detailCommon2) → 소개정보(detailIntro2) 순으로 남은 한도만큼 이어서 받는다.
      어디까지 했는지는 DB(detail_status, intro_status)가 기억하므로 매일 돌리면 알아서 이어간다.
      순서는 유형 우선순위(관광지·문화시설 → 레포츠 → 축제 → 음식점)가 먼저, 같은 유형 안에서는 --areas 순서.
-  4. 지역별로 남은 건수를 찍고 끝난다.
+  4. 부가 정보: 반려동물 동반(KorPetTourService2) · 무장애(KorWithService2) · 사진 없는 곳 사진(detailImage2).
+  5. 지역별로 남은 건수를 찍고 끝난다.
 
 실내/실외 판정(enrich)과 색인(build_index)은 이 스크립트가 아니라 daily_collect.sh 가 이어서 부른다.
 
@@ -92,6 +93,10 @@ def main():
     step("ingest.fetch_festival", "--areas", area_arg)
     step("ingest.fetch_detail", "--budget", str(TOUR_DAILY_LIMIT), "--areas", area_arg)
     step("ingest.fetch_intro", "--budget", str(TOUR_DAILY_LIMIT), "--areas", area_arg)
+    # 부가 정보 — 반려동물·무장애는 서비스마다 한도가 따로, 사진은 TourAPI 남은 몫으로
+    step("ingest.fetch_extra", "pet", "--areas", area_arg)
+    step("ingest.fetch_extra", "access", "--areas", area_arg)
+    step("ingest.fetch_extra", "images", "--areas", area_arg, "--budget", str(TOUR_DAILY_LIMIT))
 
     with connect() as conn:
         print(f"\n오늘(KST) 사용 {tour_used_today(conn)}/{TOUR_DAILY_LIMIT}")

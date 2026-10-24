@@ -93,6 +93,9 @@ function render(d){
     <div class="kpi"><b class="${fails ? "bad" : ""}">${num(fails)}</b><span>실패</span></div>
     <div class="kpi"><b>${num(d.tour_calls_today)}</b><span>오늘 TourAPI 호출</span></div>
     <div class="kpi"><b>${num(d.festivals.upcoming)}</b><span>진행·예정 축제</span></div>
+    <div class="kpi"><b>${num(d.extras.pet)}</b><span>반려동물 동반 가능</span></div>
+    <div class="kpi"><b>${num(d.extras.access)}</b><span>무장애 정보 있음</span></div>
+    <div class="kpi"><b>${num(d.extras.no_image)}</b><span>사진 없는 곳</span></div>
   </div>
 
   <div class="grid">

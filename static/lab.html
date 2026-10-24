@@ -103,6 +103,7 @@
     <span class="seg" id="mode">
       <button data-m="keyword" class="on">키워드 ↔ 의미</button>
       <button data-m="rerank">의미 ↔ 리랭커</button>
+      <button data-m="hybrid">의미 ↔ 하이브리드</button>
     </span>
     <label class="sw"><input type="checkbox" id="filters" checked> 조건 필터 사용</label>
   </div>
@@ -143,6 +144,8 @@ const HEAD = {
             ["의미 검색","질문을 벡터로 바꿔 뜻이 가까운 것을"]],
   rerank:  [["의미 검색만","벡터 거리 순서 그대로"],
             ["의미 검색 + 리랭커","질문과 문서를 같이 읽고 다시 줄세움"]],
+  hybrid:  [["의미 검색만","벡터 거리 순서 그대로"],
+            ["하이브리드","키워드 순위와 의미 순위를 합침 (RRF) — 서비스 화면이 쓰는 방식"]],
 };
 const $ = s => document.querySelector(s);
 let mode = "keyword";
@@ -173,7 +176,9 @@ function card(r, flag){
   const baby = r.baby_ok === false ? `<span class="badge warn">유모차 불가</span>`
              : r.baby_ok === true ? `<span class="badge in">유모차 가능</span>` : "";
   let score;
-  if ("rerank_score" in r){
+  if ("rrf" in r){
+    score = `RRF ${r.rrf.toFixed(4)} · ${esc(r.via)}`;
+  } else if ("rerank_score" in r){
     const moved = r.was_rank - r.rank;
     score = `관련도 ${r.rerank_score.toFixed(3)}`
       + (moved > 0 ? ` · <span class="move">${r.was_rank}위 → ${r.rank}위</span>` : ` · ${r.was_rank}위 유지`);
@@ -239,6 +244,10 @@ async function run(){
       const newly = R.filter(r => r.was_rank > 8).length;
       $("#note").innerHTML = `리랭커가 <b>${moved}곳</b>의 순위를 올렸고, `
         + `그중 <b>${newly}곳</b>은 벡터 검색 상위 8위 밖에 있던 것입니다.`;
+      $("#note").hidden = false;
+    } else if(onlyR.size && mode === "hybrid"){
+      $("#note").innerHTML = `키워드 순위가 더해져 새로 들어온 장소 <b>${onlyR.size}곳</b>(초록 카드). `
+        + `이름·고유명사처럼 의미 검색만으로는 밀리던 결과입니다.`;
       $("#note").hidden = false;
     } else if(onlyR.size){
       $("#note").innerHTML = `의미 검색에만 나온 장소 <b>${onlyR.size}곳</b>(초록 카드). `

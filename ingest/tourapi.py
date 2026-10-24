@@ -10,7 +10,7 @@ import urllib.parse
 import httpx
 
 from .config import TOUR_API_KEY, TOUR_BASE, TOUR_APP_NAME, TOUR_DAILY_LIMIT
-from .db import log_call, tour_used_today
+from .db import log_call, tour_used_today, used_today
 
 
 class QuotaExceeded(RuntimeError):
@@ -31,14 +31,18 @@ def _service_key() -> str:
     return key
 
 
-def call(conn, op: str, params: dict, *, timeout=20.0, retries=3, respect_quota=True) -> dict:
+def call(conn, op: str, params: dict, *, timeout=20.0, retries=3, respect_quota=True,
+         service=None, api="tour", limit=None) -> dict:
+    """service 를 주면 같은 기관의 다른 서비스(KorPetTourService2, KorWithService2 …)를 부른다.
+    그 경우 api 이름(호출 기록·한도 계산용)과 하루 한도(limit)도 따로 준다 — 포털 한도가 서비스마다 따로라서."""
     if not TOUR_API_KEY:
         raise RuntimeError(".env 의 TOUR_API_KEY 가 비어 있습니다.")
 
     if respect_quota:
-        used = tour_used_today(conn)
-        if used >= TOUR_DAILY_LIMIT:
-            raise QuotaExceeded(f"오늘(KST) 이미 {used}회 호출. 한도 {TOUR_DAILY_LIMIT}")
+        cap = limit if limit is not None else TOUR_DAILY_LIMIT
+        used = tour_used_today(conn) if api == "tour" else used_today(conn, api)
+        if used >= cap:
+            raise QuotaExceeded(f"오늘(KST) {api} 이미 {used}회 호출. 한도 {cap}")
 
     q = {
         "serviceKey": _service_key(),
@@ -47,7 +51,8 @@ def call(conn, op: str, params: dict, *, timeout=20.0, retries=3, respect_quota=
         "_type": "json",
         **params,
     }
-    url = f"{TOUR_BASE}/{op}"
+    base = TOUR_BASE if not service else f"{TOUR_BASE.rsplit('/', 1)[0]}/{service}"
+    url = f"{base}/{op}"
 
     last = None
     for attempt in range(retries):
@@ -60,7 +65,7 @@ def call(conn, op: str, params: dict, *, timeout=20.0, retries=3, respect_quota=
                 body = r.json()
             except Exception:
                 # 오류일 때 XML 로 오는 경우가 있다
-                log_call(conn, "tour", op, False, r.status_code, ms, note=r.text[:300])
+                log_call(conn, api, op, False, r.status_code, ms, note=r.text[:300])
                 raise TourApiError("NON_JSON", r.text[:200])
 
             header = (body.get("response") or {}).get("header") or {}
@@ -78,10 +83,10 @@ def call(conn, op: str, params: dict, *, timeout=20.0, retries=3, respect_quota=
                     code, msg = "NO_HEADER", str(body)[:200]
 
             if code in ("0000", "00", "0"):
-                log_call(conn, "tour", op, True, r.status_code, ms)
+                log_call(conn, api, op, True, r.status_code, ms)
                 return (body.get("response") or {}).get("body") or {}
 
-            log_call(conn, "tour", op, False, r.status_code, ms, note=f"{code} {msg}")
+            log_call(conn, api, op, False, r.status_code, ms, note=f"{code} {msg}")
             # 한도 초과 계열은 재시도해도 소용없다
             if code in ("22", "0022", "LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR"):
                 raise QuotaExceeded(f"API 한도 초과 응답: {code} {msg}")
@@ -89,7 +94,7 @@ def call(conn, op: str, params: dict, *, timeout=20.0, retries=3, respect_quota=
 
         except (httpx.TimeoutException, httpx.TransportError) as e:
             last = e
-            log_call(conn, "tour", op, False, None, int((time.time() - t0) * 1000), note=str(e)[:200])
+            log_call(conn, api, op, False, None, int((time.time() - t0) * 1000), note=str(e)[:200])
             time.sleep(1.5 * (attempt + 1))
             continue
 
