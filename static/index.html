@@ -268,6 +268,13 @@ footer b{color:var(--ink-2)}
 .qrow .chip{flex:none;white-space:nowrap}
 .qrow .clear{flex:none;border:0;background:none;color:var(--muted);font-size:12.5px;padding:4px 6px}
 body.has-result .qrow{display:none}
+.qrow > small{flex:none;font-size:12px;color:var(--muted);margin:0 2px 0 -2px}
+/* 넓은 화면은 줄바꿈으로 다 보여 준다 (끝이 흐려지면 '끌면 더 있다' 로 읽히는데 마우스로는 끌 수 없어서) */
+@media (min-width:700px){
+  .qrow{flex-wrap:wrap;overflow:visible;-webkit-mask-image:none;mask-image:none;padding-right:0}
+}
+.home-btn{display:none}
+body.has-result .home-btn{display:inline-flex}
 .home{margin:6px 0 34px}
 body.has-result .home{display:none}
 .home h2{font-size:17px;margin:22px 0 10px;letter-spacing:-.02em;display:flex;align-items:baseline;gap:8px}
@@ -339,6 +346,8 @@ body.has-result .home{display:none}
     <div class="row">
       <button type="button" class="region-btn" id="regionBtn" aria-haspopup="dialog"></button>
       <button type="button" class="region-btn" id="nearBtn"></button>
+      <button type="button" class="region-btn home-btn" id="homeBtn" aria-label="처음 화면으로">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></svg><span>처음으로</span></button>
     </div>
     <div id="qrows"></div>
   </section>
@@ -675,9 +684,34 @@ window.addEventListener("popstate", e => {
   const open = document.querySelector("dialog[open]");
   if (open){ open.close(); return; }                      // 뒤로 = 시트 닫기
   const s = e.state || {};
+  const q = new URLSearchParams(location.search).get("q");
   if (s.course) course(s.course);
-  else if (state.items.length) showList();
+  else if (q && state.items.length && state.last?.query === q) showList();
+  else if (q){ $("#q").value = q; search(false); }
+  else showHome();
 });
+
+// 첫 화면으로: 결과·코스·지도를 걷고, 검색어 추천·축제를 다시 보여 준다
+function showHome(){
+  document.body.classList.remove("has-result");
+  state.items = []; state.last = null; state.course = null;
+  state.cond = {off: [], add: {}};
+  $("#q").value = "";
+  $("#understood").innerHTML = ""; $("#wx").innerHTML = ""; $("#pane").innerHTML = "";
+  $("#main").classList.add("nomap");
+  if (state.kakao) clearMap();
+  window.scrollTo(0, 0);
+  renderQueryRows();
+  loadHome();
+}
+function goHome(e){
+  if (e) e.preventDefault();
+  if (!document.body.classList.contains("has-result")){ window.scrollTo(0, 0); return; }
+  history.pushState(null, "", location.pathname);
+  showHome();
+}
+document.querySelector(".brand").addEventListener("click", goHome);
+$("#homeBtn").addEventListener("click", () => goHome());
 
 // 화면이 바뀌면 결과가 시작하는 곳으로 바로 (부드러운 스크롤은 내용이 바뀌는 중에 끊겨서 쓰지 않는다)
 function toResultsTop(){
@@ -793,28 +827,59 @@ function rememberQuery(q){
   recent = [q, ...recent.filter(x => x !== q)].slice(0, 8);
   try { localStorage.setItem(RECENT_KEY, JSON.stringify(recent)); } catch {}
 }
-// 달마다 어울리는 검색어 (계절 추천). 질문으로 그대로 검색된다
+// 지금 어울리는 검색어 — 달(계절) · 시간대 · 요일 · 날씨(지역이나 내 근처를 골랐을 때) · 이번 주 축제
+// 달마다 후보를 여러 개 두고 날마다 돌려 보여 준다 (매일 같은 칩만 보이지 않게)
 const SEASON = {
-  1: ["따뜻한 실내 데이트", "겨울 바다 보기 좋은 곳", "눈 구경하기 좋은 곳"],
-  2: ["따뜻한 실내 데이트", "겨울 축제", "온천·스파"],
-  3: ["봄꽃 산책길", "매화 보기 좋은 곳", "아이랑 봄나들이"],
-  4: ["벚꽃 명소", "봄꽃 축제", "피크닉 하기 좋은 공원"],
-  5: ["아이랑 체험할 곳", "장미·꽃 정원", "야외 축제"],
-  6: ["시원한 숲길", "비 오는 날 실내", "바다 보면서 커피 마실 곳"],
-  7: ["시원한 계곡", "바다 물놀이", "더울 때 실내"],
-  8: ["시원한 계곡", "여름 축제", "더울 때 실내"],
-  9: ["가을 산책길", "억새 보기 좋은 곳", "가을 축제"],
-  10: ["단풍 명소", "억새 보기 좋은 곳", "가을 축제"],
-  11: ["단풍 명소", "따뜻한 실내 데이트", "늦가을 산책길"],
-  12: ["겨울 축제", "따뜻한 실내 데이트", "연말 야경 명소"],
+  1: ["따뜻한 실내 데이트", "겨울 바다 보기 좋은 곳", "눈 구경하기 좋은 곳", "온천·스파", "아이랑 실내 체험", "해돋이 명소"],
+  2: ["따뜻한 실내 데이트", "겨울 축제", "온천·스파", "아이랑 실내 체험", "겨울 바다 보기 좋은 곳"],
+  3: ["봄꽃 산책길", "매화 보기 좋은 곳", "아이랑 봄나들이", "유채꽃 명소", "봄 바다 드라이브"],
+  4: ["벚꽃 명소", "봄꽃 축제", "피크닉 하기 좋은 공원", "유채꽃 명소", "걷기 좋은 숲길"],
+  5: ["아이랑 체험할 곳", "장미·꽃 정원", "야외 축제", "피크닉 하기 좋은 공원", "캠핑하기 좋은 곳"],
+  6: ["시원한 숲길", "수국 명소", "바다 보면서 커피 마실 곳", "반딧불이 보러 가기", "계곡 물놀이"],
+  7: ["시원한 계곡", "바다 물놀이", "더울 때 실내", "여름 축제", "야간 개장"],
+  8: ["시원한 계곡", "여름 축제", "더울 때 실내", "바다 물놀이", "야경 명소"],
+  9: ["가을 산책길", "억새 보기 좋은 곳", "가을 축제", "핑크뮬리 명소", "별 보기 좋은 곳"],
+  10: ["단풍 명소", "억새 보기 좋은 곳", "가을 축제", "핑크뮬리 명소", "걷기 좋은 숲길", "가을 드라이브"],
+  11: ["단풍 명소", "따뜻한 실내 데이트", "늦가을 산책길", "은행나무 길", "온천·스파"],
+  12: ["겨울 축제", "따뜻한 실내 데이트", "연말 야경 명소", "크리스마스 분위기", "온천·스파"],
 };
+// 날씨를 볼 지역 대표 좌표 (지역을 골랐을 때만. '전체' 면 날씨 칩은 없다)
+const AREA_CENTER = {1: [37.566, 126.978], 2: [37.456, 126.705], 3: [36.350, 127.385], 4: [35.871, 128.601],
+  5: [35.160, 126.853], 6: [35.180, 129.076], 7: [35.538, 129.311], 8: [36.480, 127.289], 31: [37.264, 127.029],
+  32: [37.751, 128.876], 33: [36.642, 127.489], 34: [36.601, 126.660], 35: [36.568, 128.729], 36: [35.228, 128.681],
+  37: [35.824, 127.148], 38: [34.816, 126.463], 39: [33.500, 126.531]};
+const ctx = {wx: null, fest: false};
+function contextQueries(){
+  const now = new Date(), h = now.getHours(), dw = dowOf(now), mon = now.getMonth() + 1;
+  const weekendish = dw >= 5 || (dw === 4 && h >= 15);               // 금요일 오후부터 주말
+  const out = [], why = [];
+  const w = ctx.wx;
+  if (w?.ok && w.rain){ out.push("비 오는 날 실내", "비 올 때 가기 좋은 카페"); why.push("비 소식"); }
+  else if (w?.ok && w.tmp_max >= 28){ out.push("더울 때 실내", "시원한 계곡"); why.push(`최고 ${w.tmp_max}°`); }
+  else if (w?.ok && w.tmp_max != null && w.tmp_max <= 5){ out.push("따뜻한 실내 데이트"); why.push(`최고 ${w.tmp_max}°`); }
+  else if (w?.ok){ out.push("걷기 좋은 산책길"); why.push("맑음"); }
+  if (h < 10){ out.push("아침 산책하기 좋은 곳"); why.push("아침"); }
+  else if (h < 14){ out.push("점심 맛집"); why.push("점심"); }
+  else if (h < 17){ out.push("카페 가기 좋은 곳"); why.push("오후"); }
+  else { out.push("야경 명소", "저녁 맛집"); why.push("저녁"); }
+  if (ctx.fest) out.push(weekendish ? "이번 주말 축제" : "이번 주 축제");
+  else if (weekendish) out.push("주말 나들이");
+  // 계절 칩: 날마다 시작 위치를 바꿔 3개
+  const list = SEASON[mon], day = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 864e5);
+  for (let i = 0; i < 3; i++) out.push(list[(day + i) % list.length]);
+  why.push(`${mon}월`);
+  return {qs: [...new Set(out)].slice(0, 8), why: why.join(" · ")};
+}
 let popular = [];
 function chipBtn(t){ return `<button type="button" class="chip" data-q="${esc(t)}">${esc(t)}</button>`; }
 function renderQueryRows(){
   const rows = [];
   if (recent.length) rows.push(`<div class="qrow"><b>최근</b>${recent.map(chipBtn).join("")}<button type="button" class="clear" id="clearRecent">지우기</button></div>`);
-  rows.push(`<div class="qrow"><b>${popular.length ? "많이 찾는" : "이렇게 찾아 보세요"}</b>${(popular.length ? popular : EXAMPLES).map(chipBtn).join("")}</div>`);
-  rows.push(`<div class="qrow"><b>${new Date().getMonth() + 1}월에 어울리는</b>${SEASON[new Date().getMonth() + 1].map(chipBtn).join("")}</div>`);
+  const c = contextQueries();
+  rows.push(`<div class="qrow"><b>지금 어울리는</b><small>${esc(c.why)}</small>${c.qs.map(chipBtn).join("")}</div>`);
+  const seen = new Set([...recent, ...c.qs]);
+  const pop = (popular.length ? popular : EXAMPLES).filter(q => !seen.has(q));
+  if (pop.length) rows.push(`<div class="qrow"><b>${popular.length ? "많이 찾는" : "이렇게 찾아 보세요"}</b>${pop.map(chipBtn).join("")}</div>`);
   $("#qrows").innerHTML = rows.join("");
   $("#clearRecent")?.addEventListener("click", () => {
     recent = []; try { localStorage.removeItem(RECENT_KEY); } catch {} renderQueryRows();
@@ -824,6 +889,17 @@ $("#qrows").addEventListener("click", e => {
   const b = e.target.closest("[data-q]");
   if (b){ $("#q").value = b.dataset.q; search(); }
 });
+// 첫 화면 날씨 (지역·내 근처를 골랐을 때만). 기상청 미신청이면 조용히 빠진다
+let ctxSeq = 0;
+async function loadContextWeather(){
+  const my = ++ctxSeq;
+  const pt = state.near ? [state.near.lat, state.near.lon] : AREA_CENTER[state.area];
+  if (!pt){ ctx.wx = null; renderQueryRows(); return; }
+  try {
+    const w = await api(`/api/weather?lat=${pt[0].toFixed(3)}&lon=${pt[1].toFixed(3)}`);
+    if (my === ctxSeq){ ctx.wx = w; renderQueryRows(); }
+  } catch { if (my === ctxSeq){ ctx.wx = null; renderQueryRows(); } }
+}
 
 let homeSeq = 0;
 async function loadHome(){
@@ -833,7 +909,10 @@ async function loadHome(){
   let d;
   try { d = await api(`/api/home?${where}`); } catch { return; }
   if (my !== homeSeq) return;
-  if ((d.popular || []).join() !== popular.join()){ popular = d.popular || []; renderQueryRows(); }
+  popular = d.popular || [];
+  ctx.fest = !!d.festivals?.length;
+  renderQueryRows();
+  loadContextWeather();
   const TN = {12: "관광지", 14: "문화시설", 15: "축제공연행사", 28: "레포츠", 39: "음식점"};
   state.homeItems = [...(d.festivals || []), ...(d.calm || [])].map(r => ({...r, type: TN[r.content_type] || ""}));
   const place = state.near ? "내 근처" : (state.area ? areaName(state.area) : "전국");
@@ -926,7 +1005,11 @@ async function search(push = true, keepCond = false){
   const q = $("#q").value.trim();
   if (!q) { $("#q").focus(); return; }
   if (!keepCond || q !== state.last?.query) state.cond = {off: [], add: {}};
-  if (push) history.replaceState(null, "", "?q=" + encodeURIComponent(q));
+  if (push){
+    // 첫 화면에서 검색하면 한 칸 쌓아 '뒤로' 가 첫 화면으로 오게 (사이트를 나가지 않게). 결과에서 다시 찾으면 바꿔 끼운다
+    const fromHome = !new URLSearchParams(location.search).has("q") && !history.state?.course;
+    history[fromHome ? "pushState" : "replaceState"](null, "", "?q=" + encodeURIComponent(q));
+  }
   rememberQuery(q); renderQueryRows();
   view.listY = 0;
   document.body.classList.add("has-result");
