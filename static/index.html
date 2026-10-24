@@ -225,8 +225,10 @@ dialog::backdrop{background:rgba(10,12,10,.45)}
 .facts dt{color:var(--muted);white-space:nowrap}
 .facts dd{margin:0;white-space:pre-line}
 
-.adfit{display:flex;justify-content:center;align-items:center;margin:32px 0 6px;min-height:90px;overflow:hidden}
-@media (max-width:767px){.adfit{min-height:100px}}
+.adfit{display:flex;justify-content:center;align-items:center;margin:32px auto 6px;min-height:90px;width:100%;overflow:hidden}
+.adfit .kakao_ad_area{margin:0 auto}
+/* PC 광고(728px)는 칸이 728px 이상일 때만. 그보다 좁으면(태블릿 세로·좁힌 창) 모바일 광고(320px)를 가운데에 */
+@media (max-width:799px){.adfit{min-height:100px}}
 .adfit.empty{display:none}
 footer{border-top:1px solid var(--line);padding:22px 0 40px;font-size:12.5px;color:var(--muted);line-height:1.7}
 footer b{color:var(--ink-2)}
@@ -1466,7 +1468,8 @@ boot();
 // 보여줄 광고가 없으면(심사 중·미노출) 빈 칸을 접는다.
 (function(){
   var box=document.getElementById("adfit"); if(!box) return;
-  var m=window.matchMedia("(max-width: 767px)").matches;
+  // 페이지 양옆 여백(24px×2)을 빼고 728px 광고가 다 들어가는 너비부터 PC 광고
+  var m=window.matchMedia("(max-width: 799px)").matches;
   var ad=m?{unit:"DAN-05aYFOoiSIa6Ch4w",w:320,h:100}:{unit:"DAN-30fMubWb77Sswjvi",w:728,h:90};
   window.__banajeolAdFail=function(){box.classList.add("empty");};
   var ins=document.createElement("ins");
