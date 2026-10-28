@@ -228,6 +228,13 @@ def get_weather(lat: float = Query(..., ge=33, le=39), lon: float = Query(..., g
         return weather.forecast(conn, lat, lon)
 
 
+@app.get("/api/weather/week", dependencies=limited)
+def get_weather_week(lat: float = Query(..., ge=33, le=39), lon: float = Query(..., ge=124, le=132)):
+    """날씨 창: 지금 + 오늘부터 10일 (단기예보 + 중기예보). 중기예보 미신청이면 3~4일치만."""
+    with connect() as conn:
+        return weather.week(conn, round(lat, 2), round(lon, 2))
+
+
 @app.get("/api/search", dependencies=limited)
 def search(
     q: str = Query(..., min_length=1, max_length=100),

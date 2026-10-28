@@ -122,3 +122,208 @@ def forecast(conn, lat, lon):
     if s:
         cache.put(conn, "weather", key, out)
     return out
+
+
+# ── 날씨 창: 오늘~10일 (단기예보 + 중기예보) ─────────────────────────────
+# 0~3일 뒤는 단기예보(동네 격자), 4~10일 뒤는 중기예보(광역 육상예보 + 도시 기온).
+# 중기예보(MidFcstInfoService)는 활용신청을 따로 해야 한다. 신청 전이면 단기예보 3~4일치만 나온다.
+MID_LAND = "https://apis.data.go.kr/1360000/MidFcstInfoService/getMidLandFcst"
+MID_TA = "https://apis.data.go.kr/1360000/MidFcstInfoService/getMidTa"
+LAND_NAME = {"11B00000": "서울·인천·경기", "11D10000": "강원 영서", "11D20000": "강원 영동",
+             "11C20000": "대전·세종·충남", "11C10000": "충북", "11F20000": "광주·전남", "11F10000": "전북",
+             "11H10000": "대구·경북", "11H20000": "부산·울산·경남", "11G00000": "제주"}
+# 중기 기온 도시 (기온 구역코드, 이름, 위도, 경도, 육상예보 구역)
+MID_CITIES = [
+    ("11B10101", "서울", 37.566, 126.978, "11B00000"), ("11B20201", "인천", 37.456, 126.705, "11B00000"),
+    ("11B20601", "수원", 37.264, 127.029, "11B00000"), ("11B20305", "파주", 37.760, 126.780, "11B00000"),
+    ("11B20701", "이천", 37.272, 127.435, "11B00000"), ("11B20606", "평택", 36.992, 127.113, "11B00000"),
+    ("11D10301", "춘천", 37.881, 127.730, "11D10000"), ("11D10401", "원주", 37.342, 127.920, "11D10000"),
+    ("11D20501", "강릉", 37.752, 128.876, "11D20000"), ("11D20401", "속초", 38.207, 128.592, "11D20000"),
+    ("11C20401", "대전", 36.350, 127.385, "11C20000"), ("11C20404", "세종", 36.480, 127.289, "11C20000"),
+    ("11C20104", "홍성", 36.601, 126.660, "11C20000"), ("11C20301", "천안", 36.815, 127.114, "11C20000"),
+    ("11C20201", "보령", 36.333, 126.613, "11C20000"),
+    ("11C10301", "청주", 36.642, 127.489, "11C10000"), ("11C10101", "충주", 36.991, 127.926, "11C10000"),
+    ("11F10201", "전주", 35.824, 127.148, "11F10000"), ("21F10501", "군산", 35.968, 126.737, "11F10000"),
+    ("11F20501", "광주", 35.160, 126.853, "11F20000"), ("21F20801", "목포", 34.812, 126.392, "11F20000"),
+    ("11F20401", "여수", 34.760, 127.662, "11F20000"), ("11F20603", "순천", 34.951, 127.487, "11F20000"),
+    ("11H10701", "대구", 35.871, 128.601, "11H10000"), ("11H10501", "안동", 36.568, 128.729, "11H10000"),
+    ("11H10201", "포항", 36.019, 129.343, "11H10000"),
+    ("11H20201", "부산", 35.180, 129.076, "11H20000"), ("11H20101", "울산", 35.538, 129.311, "11H20000"),
+    ("11H20301", "창원", 35.228, 128.681, "11H20000"), ("11H20701", "진주", 35.180, 128.108, "11H20000"),
+    ("11H20401", "통영", 34.854, 128.433, "11H20000"),
+    ("11G00201", "제주", 33.500, 126.531, "11G00000"), ("11G00401", "서귀포", 33.254, 126.560, "11G00000"),
+]
+DOW_KO = "월화수목금토일"
+
+
+def _near_cities(lat, lon):
+    d = lambda c: (c[2] - lat) ** 2 + ((c[3] - lon) * math.cos(math.radians(lat))) ** 2
+    return sorted(MID_CITIES, key=d)
+
+
+def _call(conn, url, op, params):
+    """공공데이터포털 JSON 호출 → item 목록 (실패면 None)."""
+    t0 = time.time()
+    try:
+        r = httpx.get(url, params={"serviceKey": _key(), "pageNo": 1, "dataType": "JSON", **params}, timeout=8)
+        ms = int((time.time() - t0) * 1000)
+        body = r.json() if "json" in r.headers.get("content-type", "") else None
+        head = ((body or {}).get("response") or {}).get("header") or {}
+        if r.status_code != 200 or head.get("resultCode") != "00":
+            log_call(conn, "kma", op, False, r.status_code, ms, note=(head.get("resultMsg") or r.text[:200]))
+            return None
+        log_call(conn, "kma", op, True, 200, ms)
+        items = body["response"]["body"]["items"]["item"]
+        return items if isinstance(items, list) else [items]
+    except Exception as e:
+        log_call(conn, "kma", op, False, None, int((time.time() - t0) * 1000), note=str(e)[:200])
+        return None
+
+
+def _wf_of(sky, pty):
+    if pty and pty != "0":
+        return PTY_NAME.get(pty, "비")
+    return SKY_NAME.get(sky or "", None)
+
+
+def _short_days(items, now):
+    """단기예보 항목 → {날짜: {am, pm, tmin, tmax}} 와 지금 날씨."""
+    slots = {}
+    for it in items:
+        slots.setdefault(it["fcstDate"] + it["fcstTime"], {})[it.get("category")] = it.get("fcstValue")
+    days, hours = {}, []
+    for k in sorted(slots):
+        v = slots[k]
+        if v.get("TMP") not in (None, ""):
+            hours.append({"t": k, "tmp": round(_num(v["TMP"])), "wf": _wf_of(v.get("SKY"), v.get("PTY")),
+                          "pop": int(_num(v.get("POP")) or 0), "reh": _num(v.get("REH")), "wsd": _num(v.get("WSD"))})
+        date, hh = k[:8], int(k[8:10])
+        d = days.setdefault(date, {"temps": [], "am": [], "pm": [], "tmin": None, "tmax": None})
+        if v.get("TMN") not in (None, ""):
+            d["tmin"] = _num(v["TMN"])
+        if v.get("TMX") not in (None, ""):
+            d["tmax"] = _num(v["TMX"])
+        if v.get("TMP") not in (None, ""):
+            d["temps"].append(_num(v["TMP"]))
+        if 6 <= hh < 12:
+            d["am"].append(v)
+        elif 12 <= hh < 21:
+            d["pm"].append(v)
+
+    def half(vs):
+        if not vs:
+            return None
+        pop = max(int(_num(x.get("POP")) or 0) for x in vs)
+        rain = [x for x in vs if x.get("PTY", "0") not in ("0", "", None)]
+        if rain:
+            wf = _wf_of(None, rain[0]["PTY"])
+        else:
+            skies = [x.get("SKY") for x in vs if x.get("SKY")]
+            wf = SKY_NAME.get(max(set(skies), key=skies.count), None) if skies else None
+            if pop >= 60:
+                wf = f"{wf or '흐림'}, 비 가능"
+        return {"wf": wf, "pop": pop}
+
+    out = {}
+    for date, d in days.items():
+        tmin = d["tmin"] if d["tmin"] is not None else (min(d["temps"]) if d["temps"] else None)
+        tmax = d["tmax"] if d["tmax"] is not None else (max(d["temps"]) if d["temps"] else None)
+        out[date] = {"am": half(d["am"]), "pm": half(d["pm"]),
+                     "tmin": round(tmin) if tmin is not None else None,
+                     "tmax": round(tmax) if tmax is not None else None}
+    return out, hours
+
+
+def _num(x):
+    try:
+        return float(x)
+    except (TypeError, ValueError):
+        return None
+
+
+def mid_tmfc(now=None):
+    """중기예보 발표시각 (06·18시, 30분 뒤부터 받는다)."""
+    now = (now or datetime.now(KST)) - timedelta(minutes=40)
+    if now.hour >= 18:
+        return now.strftime("%Y%m%d") + "1800"
+    if now.hour >= 6:
+        return now.strftime("%Y%m%d") + "0600"
+    return (now - timedelta(days=1)).strftime("%Y%m%d") + "1800"
+
+
+def _mid(conn, lat, lon):
+    """4~10일 뒤: {날짜: {am, pm, tmin, tmax}}, 쓰인 구역 이름."""
+    tm = mid_tmfc()
+    cities = _near_cities(lat, lon)
+    land_id = cities[0][4]
+    key = cache.make_key("wx_mid", land=land_id, city=cities[0][0], tm=tm)
+    hit = cache.get(conn, "weather", key)
+    if hit:
+        return hit
+    land = _call(conn, MID_LAND, "getMidLandFcst", {"numOfRows": 10, "regId": land_id, "tmFc": tm})
+    ta, city = None, None
+    for c in cities[:3]:                     # 혹시 도시 코드가 비면 다음으로 가까운 도시
+        ta = _call(conn, MID_TA, "getMidTa", {"numOfRows": 10, "regId": c[0], "tmFc": tm})
+        if ta:
+            city = c
+            break
+    if not land and not ta:
+        return None
+    L, T = (land or [{}])[0], (ta or [{}])[0]
+    base = datetime.strptime(tm[:8], "%Y%m%d")
+    days = {}
+    for n in range(3, 11):
+        date = (base + timedelta(days=n)).strftime("%Y%m%d")
+        if f"wf{n}Am" in L:
+            am = {"wf": L.get(f"wf{n}Am") or None, "pop": _num(L.get(f"rnSt{n}Am"))}
+            pm = {"wf": L.get(f"wf{n}Pm") or None, "pop": _num(L.get(f"rnSt{n}Pm"))}
+        elif f"wf{n}" in L:
+            am = pm = {"wf": L.get(f"wf{n}") or None, "pop": _num(L.get(f"rnSt{n}"))}
+        else:
+            am = pm = None
+        tmin, tmax = _num(T.get(f"taMin{n}")), _num(T.get(f"taMax{n}"))
+        if not (am and am["wf"]) and tmin is None:
+            continue
+        days[date] = {"am": am if am and am["wf"] else None, "pm": pm if pm and pm["wf"] else None,
+                      "tmin": round(tmin) if tmin is not None else None,
+                      "tmax": round(tmax) if tmax is not None else None}
+    out = {"days": days, "land": LAND_NAME.get(land_id), "city": city[1] if city else None, "tm": tm}
+    cache.put(conn, "weather", key, out)
+    return out
+
+
+def week(conn, lat, lon):
+    """날씨 창: 지금 + 오늘부터 10일 (날짜순, 단기 우선)."""
+    if not _key():
+        return {"ok": False, "reason": "키 없음"}
+    now = datetime.now(KST)
+    nx, ny = to_grid(lat, lon)
+    bd, bt = base_time()
+    skey = cache.make_key("wx_short", nx=nx, ny=ny, bd=bd, bt=bt)
+    short = cache.get(conn, "weather", skey)
+    if not short:
+        items = _call(conn, URL, "getVilageFcst", {"numOfRows": 1500, "base_date": bd, "base_time": bt,
+                                                   "nx": nx, "ny": ny})
+        if items:
+            days, hours = _short_days(items, now)
+            short = {"days": days, "hours": hours}
+            cache.put(conn, "weather", skey, short)
+    mid = _mid(conn, lat, lon)
+    merged = dict((mid or {}).get("days") or {})
+    merged.update((short or {}).get("days") or {})      # 겹치는 날은 동네 단위 단기예보가 우선
+    today = now.strftime("%Y%m%d")
+    out_days = []
+    for date in sorted(merged):
+        if date < today:
+            continue
+        dt = datetime.strptime(date, "%Y%m%d")
+        out_days.append({"date": dt.strftime("%Y-%m-%d"), "dow": DOW_KO[dt.weekday()],
+                         "src": "short" if short and date in short["days"] else "mid", **merged[date]})
+    # 지금·시간별은 읽을 때 자른다 (캐시가 한 시간 묵어도 '지금' 은 맞게)
+    nowkey = now.strftime("%Y%m%d%H00")
+    hours = [h for h in (short or {}).get("hours", []) if h["t"] >= nowkey][:24]
+    for h in hours:
+        h["h"] = int(h["t"][8:10])
+    return {"ok": bool(out_days), "now": hours[0] if hours else None, "hours": hours, "days": out_days[:11],
+            "mid_ok": bool(mid), "region": (mid or {}).get("land"), "city": (mid or {}).get("city"),
+            "base": f"{bd} {bt}"}

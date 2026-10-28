@@ -311,6 +311,43 @@ body.has-result .home{display:none}
 .hcard b{font-size:14.5px;letter-spacing:-.02em;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hcard small{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
+/* ── 날씨 창 (상단 '날씨' 버튼) ───────────────── */
+.wxd{padding:18px 20px 22px}
+.wxd-place{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.wxd-place .btn{padding:6px 11px;font-size:13px;gap:5px}
+.wxd-place .btn[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.wxd-place select{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--line);border-radius:10px;padding:6px 8px;background:var(--surface);color:var(--ink)}
+.wxd-place select.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.wxd-now{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:14px;background:var(--surface-2)}
+.wxd-now .ic{font-size:40px;line-height:1}
+.wxd-now .t{font-size:34px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.wxd-now .d{font-size:13px;color:var(--muted);line-height:1.6}
+.wxd-now .d b{color:var(--ink);font-size:14.5px}
+.wxd-hours{display:grid;grid-auto-flow:column;grid-auto-columns:52px;gap:4px;overflow-x:auto;padding:10px 0 4px;margin:0 0 6px;scrollbar-width:thin}
+.wxd-hours div{text-align:center;font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:2px;padding:4px 0}
+.wxd-hours i{font-style:normal;font-size:18px}
+.wxd-hours b{color:var(--ink);font-size:13px}
+.wxd-hours em{font-style:normal;color:var(--blue);font-size:11px;min-height:13px}
+.wxd-days{margin-top:8px;border-top:1px solid var(--line)}
+.wxd-day{display:grid;grid-template-columns:64px 52px 1fr 92px;align-items:center;gap:8px;padding:9px 2px;border-bottom:1px solid var(--line);font-size:13.5px}
+.wxd-day .dn b{display:block;font-size:14px}
+.wxd-day .dn small{color:var(--muted);font-size:11.5px}
+.wxd-day.sat .dn b{color:var(--blue)} .wxd-day.sun .dn b{color:#dc2626}
+.wxd-day.wk{background:var(--surface-2)}
+.wxd-day .ic{font-size:19px;letter-spacing:2px;white-space:nowrap}
+.wxd-day .pop{min-width:0;display:flex;flex-direction:column;gap:1px;line-height:1.35}
+.wxd-day .pop span{color:var(--ink);font-size:13px;word-break:keep-all}
+.wxd-day .pop small{color:var(--muted);font-size:11.5px}
+.wxd-day .pop b{color:var(--blue);font-weight:700}
+.wxd-day .tm{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.wxd-day .tm small{color:var(--blue);margin-right:6px}
+.wxd-tip{margin-top:14px;display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;background:var(--blue-soft);font-size:13.5px}
+.wxd-tip.sunny{background:var(--olive-soft)}
+.wxd-tip span{flex:1}
+.wxd-src{margin:12px 0 0;font-size:11.5px;color:var(--muted);line-height:1.6}
+.wxd-empty{padding:24px 6px;text-align:center;color:var(--muted);font-size:14px}
+@media (max-width:600px){.wxd-day{grid-template-columns:54px 48px 1fr 84px;gap:6px}}
+
 /* ── 조건 칩 (끄고 켜기) ─────────────────── */
 .cond{display:inline-flex;align-items:center;gap:2px;padding:3px 4px 3px 10px;border-radius:999px;font-size:12.5px;font-weight:600;
   background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent-line)}
@@ -353,7 +390,7 @@ body.has-result .home{display:none}
 <div class="wrap">
   <header class="top">
     <a class="brand" href="/"><i><svg width="18" height="18" viewBox="0 0 32 32" aria-hidden="true"><path d="M7 22a9 9 0 0 1 18 0" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/><circle cx="16" cy="11" r="3" fill="#fdba74"/></svg></i>반나절<small>말로 찾는 여행 코스</small></a>
-    <nav><button type="button" class="saved-btn home-btn" id="homeBtn" aria-label="처음 화면으로"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></svg><span>처음으로</span></button><button type="button" class="saved-btn" id="savedBtn" aria-haspopup="dialog"></button><a href="/lab" title="검색 방식을 나란히 비교해 보는 화면">검색 실험실</a></nav>
+    <nav><button type="button" class="saved-btn home-btn" id="homeBtn" aria-label="처음 화면으로"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></svg><span>처음으로</span></button><button type="button" class="saved-btn" id="wxBtn" aria-haspopup="dialog" aria-label="날씨 보기"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v1.5M5.6 5.6l1 1M3 12h1.5M18.4 5.6l-1 1"/><path d="M8.5 11a3.5 3.5 0 0 1 6.6-1.6"/><path d="M7 20h10a3.5 3.5 0 0 0 0-7 5 5 0 0 0-9.6 1.5A2.8 2.8 0 0 0 7 20z"/></svg><span>날씨</span></button><button type="button" class="saved-btn" id="savedBtn" aria-haspopup="dialog"></button><a href="/lab" title="검색 방식을 나란히 비교해 보는 화면">검색 실험실</a></nav>
   </header>
 
   <section class="hero">
@@ -395,6 +432,7 @@ body.has-result .home{display:none}
 <dialog id="dlg"></dialog>
 <dialog id="regionDlg" aria-label="지역 선택"></dialog>
 <dialog id="savedDlg" aria-label="가고 싶은 곳"></dialog>
+<dialog id="wxDlg" aria-label="날씨"></dialog>
 
 <script>
 const $ = s => document.querySelector(s);
@@ -635,6 +673,126 @@ async function loadWeather(pt, ctx){
     state.cond.add.indoor = true; state.cond.off = state.cond.off.filter(o => o !== "indoor"); search(true, true);
   });
 }
+// ── 날씨 창: 내 위치나 고른 지역의 지금·시간별·10일 날씨 (기상청 단기+중기예보) ─────────
+const WX_KEY = "banna-wx-place";
+let wxPlace = null, wxSeq2 = 0;
+const wxIcon = wf => {
+  wf = wf || "";
+  if (/눈/.test(wf) && /비/.test(wf)) return "🌨️";
+  if (/눈/.test(wf)) return "❄️";
+  if (/소나기/.test(wf)) return "🌦️";
+  if (/비/.test(wf)) return "🌧️";
+  if (/흐림|흐리고/.test(wf)) return "☁️";
+  if (/구름/.test(wf)) return "⛅";
+  return wf ? "☀️" : "·";
+};
+function wxSave(){ try { localStorage.setItem(WX_KEY, JSON.stringify(wxPlace)); } catch {} }
+function wxDefault(){
+  if (state.near) return {kind: "near", lat: state.near.lat, lon: state.near.lon, label: "내 위치"};
+  if (state.area && AREA_CENTER[state.area]){
+    const [lat, lon] = AREA_CENTER[state.area];
+    return {kind: "area", area: state.area, lat, lon, label: areaName(state.area)};
+  }
+  try { return JSON.parse(localStorage.getItem(WX_KEY) || "null"); } catch { return null; }
+}
+function wxPlaceBar(){
+  const opts = ALL_AREAS.filter(([c]) => AREA_CENTER[c]).map(([c, n]) =>
+    `<option value="${c}" ${wxPlace?.kind === "area" && wxPlace.area === c ? "selected" : ""}>${esc(n)}</option>`).join("");
+  return `<div class="wxd-place">
+    <button type="button" class="btn" data-wxnear aria-pressed="${wxPlace?.kind === "near"}">${LOC}<span>내 위치</span></button>
+    <select data-wxarea aria-label="지역 고르기" class="${wxPlace?.kind === "area" ? "on" : ""}">
+      <option value="">지역 고르기</option>${opts}</select></div>`;
+}
+function openWx(){
+  wxPlace = wxDefault();
+  if (!$("#wxDlg").open) openSheet($("#wxDlg"));
+  renderWx();
+}
+async function renderWx(){
+  const dlg = $("#wxDlg");
+  const head = `<div class="rs-head"><h2>${wxPlace ? esc(wxPlace.label) + " 날씨" : "날씨"}</h2><button type="button" aria-label="닫기" data-close>×</button></div>`;
+  if (!wxPlace){
+    dlg.innerHTML = `<div class="wxd">${head}${wxPlaceBar()}
+      <p class="wxd-empty">내 위치를 허용하거나 지역을 고르면<br>지금 날씨와 열흘 예보를 보여 드려요.</p></div>`;
+    return;
+  }
+  dlg.innerHTML = `<div class="wxd">${head}${wxPlaceBar()}<p class="wxd-empty">날씨를 불러오는 중…</p></div>`;
+  const my = ++wxSeq2;
+  let w;
+  try { w = await api(`/api/weather/week?lat=${wxPlace.lat.toFixed(3)}&lon=${wxPlace.lon.toFixed(3)}`); } catch { w = null; }
+  if (my !== wxSeq2 || !dlg.open) return;
+  if (!w || !w.ok){
+    dlg.innerHTML = `<div class="wxd">${head}${wxPlaceBar()}<p class="wxd-empty">지금은 날씨를 불러오지 못했어요.<br>잠시 뒤 다시 열어 주세요.</p></div>`;
+    return;
+  }
+  const n = w.now;
+  const nowBox = n ? `<div class="wxd-now"><span class="ic">${wxIcon(n.wf)}</span>
+      <span class="t">${n.tmp}°</span>
+      <span class="d"><b>${esc(n.wf || "")}</b><br>비 올 확률 ${n.pop}%${n.reh != null ? ` · 습도 ${Math.round(n.reh)}%` : ""}${n.wsd != null ? ` · 바람 ${n.wsd}m/s` : ""}</span></div>` : "";
+  const hours = (w.hours || []).length ? `<div class="wxd-hours" aria-label="시간별 날씨">${w.hours.map((h, i) =>
+      `<div><span>${i ? (h.h === 0 ? "내일" : h.h + "시") : "지금"}</span><i>${wxIcon(h.wf)}</i><b>${h.tmp}°</b><em>${h.pop >= 30 ? h.pop + "%" : ""}</em></div>`).join("")}</div>` : "";
+  const today = ymd(new Date()), tmr = ymd(new Date(Date.now() + 864e5));
+  const days = w.days.map(d => {
+    const dn = d.date === today ? "오늘" : d.date === tmr ? "내일" : d.dow + "요일";
+    const cls = d.dow === "토" ? "sat wk" : d.dow === "일" ? "sun wk" : "";
+    const am = d.am || d.pm, pm = d.pm || d.am;
+    const same = (am?.wf || "") === (pm?.wf || "");
+    const pops = [am?.pop, pm?.pop].filter(v => v != null).map(Math.round);
+    const popTxt = !pops.length ? "" : (same || pops.length < 2 || pops[0] === pops[1])
+      ? `비 <b>${Math.max(...pops)}%</b>` : `비 오전 <b>${pops[0]}%</b> · 오후 <b>${pops[1]}%</b>`;
+    const desc = same ? esc(am?.wf || "") : `${esc(am?.wf || "")} → ${esc(pm?.wf || "")}`;
+    return `<div class="wxd-day ${cls}">
+      <span class="dn"><b>${dn}</b><small>${Number(d.date.slice(5, 7))}.${Number(d.date.slice(8))}</small></span>
+      <span class="ic" title="${desc}">${same ? wxIcon(am?.wf) : wxIcon(am?.wf) + wxIcon(pm?.wf)}</span>
+      <span class="pop"><span>${desc}</span>${popTxt ? `<small>${popTxt}</small>` : ""}</span>
+      <span class="tm">${d.tmin ?? "-"}° / <b>${d.tmax ?? "-"}°</b></span></div>`;
+  }).join("");
+  // 주말 비 소식이면 실내로, 맑으면 산책길로 바로 이어 찾기
+  const wk = w.days.filter(d => d.dow === "토" || d.dow === "일").slice(0, 2);
+  const wet = wk.some(d => Math.max(d.am?.pop || 0, d.pm?.pop || 0) >= 60 || /비|눈|소나기/.test((d.am?.wf || "") + (d.pm?.wf || "")));
+  const tip = !wk.length ? "" : wet
+    ? `<div class="wxd-tip"><span>🌂 이번 주말 <b>비 소식</b>이 있어요. 실내에서 즐길 곳은 어때요?</span><button class="btn" type="button" data-wxq="비 오는 날 가기 좋은 실내">실내 찾기</button></div>`
+    : `<div class="wxd-tip sunny"><span>🌤️ 이번 주말은 비 소식이 없어요. 걷기 좋은 곳을 찾아볼까요?</span><button class="btn" type="button" data-wxq="걷기 좋은 산책길">산책길 찾기</button></div>`;
+  const src = `기상청 단기예보(동네 단위)${w.mid_ok ? ` · 4일 뒤부터는 중기예보(${esc(w.region || "")}, 기온은 ${esc(w.city || "")} 기준)` : " · 4일 뒤 예보는 준비 중이에요"}. 발표 ${esc(w.base.slice(9, 11))}시 기준이라 실제와 다를 수 있어요.`;
+  dlg.innerHTML = `<div class="wxd">${head}${wxPlaceBar()}${nowBox}${hours}<div class="wxd-days">${days}</div>${tip}<p class="wxd-src">${src}</p></div>`;
+}
+$("#wxBtn").onclick = openWx;
+$("#wxDlg").addEventListener("change", e => {
+  const sel = e.target.closest("[data-wxarea]");
+  if (!sel || !sel.value) return;
+  const a = Number(sel.value), [lat, lon] = AREA_CENTER[a];
+  wxPlace = {kind: "area", area: a, lat, lon, label: areaName(a)};
+  wxSave(); renderWx();
+});
+$("#wxDlg").addEventListener("click", async e => {
+  if (e.target.closest("[data-wxnear]")){
+    if (!navigator.geolocation){ toast("이 브라우저는 위치를 지원하지 않아요."); return; }
+    const b = e.target.closest("[data-wxnear]");
+    b.querySelector("span").textContent = "위치 확인 중…";
+    navigator.geolocation.getCurrentPosition(pos => {
+      const {latitude: lat, longitude: lon} = pos.coords;
+      if (lat < 33 || lat > 39 || lon < 124 || lon > 132){ toast("국내에서만 볼 수 있어요. 지역을 골라 주세요."); renderWx(); return; }
+      wxPlace = {kind: "near", lat, lon, label: "내 위치"};
+      wxSave(); renderWx();
+    }, err => {
+      toast(err.code === 1 ? "위치 권한이 꺼져 있어요. 지역을 골라 주세요." : "위치를 가져오지 못했어요.");
+      renderWx();
+    }, {enableHighAccuracy: false, timeout: 10000, maximumAge: 300000});
+    return;
+  }
+  const q = e.target.closest("[data-wxq]");
+  if (q){
+    if (wxPlace?.kind === "near") state.near = {lat: wxPlace.lat, lon: wxPlace.lon, r: NEAR_KM};
+    else if (wxPlace?.kind === "area"){ state.area = wxPlace.area; state.near = null; }
+    renderRegions(); renderNear();
+    await closeSheet($("#wxDlg"));
+    $("#q").value = q.dataset.wxq;
+    search(true, true);
+    return;
+  }
+  if (e.target === e.currentTarget || e.target.closest("[data-close]")) closeSheet($("#wxDlg"));
+});
+
 $("#regionDlg").addEventListener("click", async e => {
   const b = e.target.closest("[data-a]");
   if (b && !b.disabled){
