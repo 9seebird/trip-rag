@@ -56,6 +56,20 @@ def as_int(v):
         return None
 
 
+# 법정동 시도 코드(lDongRegnCd) → TourAPI 지역 코드(areaCode).
+# 축제 검색(searchFestival2)처럼 areacode 가 비어서 오는 응답이 있어 법정동 코드로 지역을 정한다.
+LDONG_TO_AREA = {"11": 1, "28": 2, "30": 3, "27": 4, "29": 5, "26": 6, "31": 7, "36": 8, "41": 31,
+                 "42": 32, "51": 32, "43": 33, "44": 34, "47": 35, "48": 36, "45": 37, "52": 37,
+                 "46": 38, "50": 39}
+
+
+def area_of(it):
+    a = as_int(it.get("areacode"))
+    if a:
+        return a
+    return LDONG_TO_AREA.get(str(it.get("lDongRegnCd") or "").strip()[:2])
+
+
 def row_of(it, priority):
     return dict(
         content_id=int(it["contentid"]),
@@ -63,7 +77,7 @@ def row_of(it, priority):
         title=(it.get("title") or "").strip(),
         addr=(it.get("addr1") or "").strip() or None,
         addr_detail=(it.get("addr2") or "").strip() or None,
-        area_code=as_int(it.get("areacode")),
+        area_code=area_of(it),
         sigungu_code=as_int(it.get("sigungucode")),
         cat1=it.get("cat1") or None,
         cat2=it.get("cat2") or None,

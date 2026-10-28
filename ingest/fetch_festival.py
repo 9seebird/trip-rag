@@ -45,7 +45,7 @@ def probe(conn, since):
             rows = items(body)
             first = rows[0] if rows else {}
             print(f"{name:28} → totalCount {body.get('totalCount')} · 첫 건: {first.get('title')} "
-                  f"({first.get('eventstartdate')}~{first.get('eventenddate')}, areacode={first.get('areacode')})")
+                  f"({first.get('eventstartdate')}~{first.get('eventenddate')}, areacode={first.get('areacode')}, lDongRegnCd={first.get('lDongRegnCd')})")
         except Exception as e:
             print(f"{name:28} → 오류 {e}")
 
@@ -65,7 +65,8 @@ def main():
         if args.probe:
             probe(conn, since)
             return
-        # 지역 코드(areaCode)로 거르면 0건이 오는 경우가 있어(코드 체계 변경), 전국을 한 번에 받고 여기서 지역을 고른다.
+        # 지역 코드(areaCode)로 거르면 0건이 오고 응답의 areacode 도 비어 있다(법정동 코드 체계로 바뀜).
+        # 전국을 한 번에 받고, 법정동 시도 코드(lDongRegnCd)로 지역을 정해 고른다 (fetch_list.area_of).
         # 전국 축제는 수백 건이라 100건씩 몇 페이지면 끝난다.
         page, saved, skipped, total, by = 1, 0, 0, None, {}
         while True:
