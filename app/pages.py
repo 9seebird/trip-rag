@@ -174,6 +174,12 @@ h2 small{font-size:12.5px;color:var(--muted);font-weight:500}
 .card b{font-size:14.5px;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .card small{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
+.areas{grid-template-columns:repeat(6,minmax(0,1fr))}
+.areas .ph{aspect-ratio:4/3}
+@media (max-width:1099px){.areas{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media (max-width:899px){.areas{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:600px){.areas{grid-template-columns:repeat(2,minmax(0,1fr))}}
+h2 small a{color:var(--accent);text-decoration:none}
 .chip{display:inline-flex;align-items:center;gap:4px;padding:7px 13px;border-radius:999px;border:1px solid var(--line);background:var(--surface);text-decoration:none;font-size:13.5px}
 .chip:hover,.chip.on{border-color:var(--accent);color:var(--accent)}
 .chip.on{background:var(--accent-soft);font-weight:600}
@@ -291,15 +297,58 @@ def area_counts(conn):
 def area_index():
     def build(conn):
         n = area_counts(conn)
-        sat, sun = weekend()
-        chips = "".join(f'<a class="chip" href="/area/{s}">{e(LONG[c])} <small style="color:var(--muted)">{n.get(c, 0):,}곳</small></a>'
-                        for c, s in AREAS if n.get(c))
+        t = today()
+        sat, sun = weekend(t)
+        span = f"{md(sat)}({DOW[sat.weekday()]})" + ("" if sat == sun else f"~{md(sun)}({DOW[sun.weekday()]})")
+        # 지역마다 대표 사진 한 장 (날마다 바뀜) + 이번 주말 축제 수
+        covers = {r["area_code"]: r for r in conn.execute(f"""
+            SELECT DISTINCT ON (p.area_code) p.area_code, p.image_url, p.title FROM places p
+            WHERE p.image_url IS NOT NULL AND p.content_type IN (12, 14) AND p.overview IS NOT NULL
+            ORDER BY p.area_code, {shuffle_sql()}""").fetchall()}
+        fests = {r["area_code"]: r["n"] for r in conn.execute("""
+            SELECT area_code, count(*) n FROM places WHERE content_type = 15 AND event_start IS NOT NULL
+              AND event_start <= %s AND event_end >= %s GROUP BY area_code""", (sun, t)).fetchall()}
+
+        def acard(c, s):
+            cv = covers.get(c) or {}
+            img = (f'<img src="{e(https(cv["image_url"]))}" alt="{e(cv.get("title"))}" loading="lazy" onerror="this.remove()">'
+                   if cv.get("image_url") else "")
+            f = fests.get(c, 0)
+            badge = f'<span class="b f">축제 {f}</span>' if f else ""
+            return (f'<a class="card" href="/area/{s}"><div class="ph">{img}{badge}</div>'
+                    f'<div class="t"><b>{e(LONG[c])}</b><small>{n.get(c, 0):,}곳 · 이번 주말 추천 보기</small></div></a>')
+        cards = "".join(acard(c, s) for c, s in AREAS if n.get(c))
+        # 전국 이번 주말 덜 붐빌 곳 (날마다 섞기)
+        try:
+            calm = conn.execute(f"""WITH wk AS (SELECT c.content_id, avg(c.rate) rate FROM crowd_forecast c
+                  WHERE c.content_id IS NOT NULL AND c.ymd BETWEEN %(sat)s AND %(sun)s GROUP BY c.content_id)
+                SELECT {COLS} FROM wk JOIN places p ON p.content_id = wk.content_id
+                WHERE p.image_url IS NOT NULL AND wk.rate < 40 ORDER BY {shuffle_sql()} LIMIT 8""",
+                                {"sat": sat, "sun": sun}).fetchall()
+        except Exception:
+            calm = []
+        fest = conn.execute(f"""SELECT {COLS} FROM places p WHERE p.content_type = 15 AND p.event_start IS NOT NULL
+            AND p.event_start <= %(sun)s AND p.event_end >= %(t)s AND p.image_url IS NOT NULL
+            ORDER BY {shuffle_sql()} LIMIT 8""", {"sun": sun, "t": t}).fetchall()
+        themes = "".join(f'<a class="chip" href="/theme/{x["slug"]}">{e(x["short"])}</a>' for x in THEMES)
+        sec = []
+        if fest:
+            sec.append(f'<h2>이번 주말 열리는 축제 <small>전국 · <a href="/festival">축제 달력 전체</a></small></h2>'
+                       + grid(fest, lambda r: card(r, f'{AREA_NAME.get(r["area_code"], "")} · {where2(r["addr"])}',
+                                                   f'{md(r["event_start"])}~{md(r["event_end"])}', True)))
+        if calm:
+            sec.append('<h2>이번 주말 덜 붐빌 곳 <small>전국 · 관광지 집중률 예측</small></h2>'
+                       + grid(calm, lambda r: card(r, where2(r["addr"]), "여유 예상")))
         body = f"""<div class="crumb"><a href="/">반나절</a> › 지역별</div>
 <h1>지역별 이번 주말 갈 만한 곳</h1>
-<p class="lead">{md(sat)}({DOW[sat.weekday()]}){'' if sat == sun else f'~{md(sun)}({DOW[sun.weekday()]})'} 주말 기준으로, 지역마다 날씨·열리는 축제·덜 붐빌 곳·실내 명소·맛집을 매일 새로 골라 둡니다.</p>
-<div class="chips">{chips}</div>"""
-        return page("지역별 이번 주말 갈 만한 곳", "서울·부산·제주 등 지역별로 이번 주말 날씨, 축제, 덜 붐비는 관광지, 실내 명소와 맛집을 매일 골라 드립니다.",
-                    "/area", body, nav="area")
+<p class="lead">{span} 주말 기준으로, 지역마다 날씨·열리는 축제·덜 붐빌 곳·실내 명소·맛집을 매일 새로 골라 둡니다. 가고 싶은 지역을 골라 보세요.</p>
+<div class="grid areas">{cards}</div>
+{''.join(sec)}
+<h2>주제로 찾기</h2><div class="chips">{themes}</div>"""
+        img = next((cv["image_url"] for cv in covers.values() if cv.get("image_url")), None)
+        return page(f"지역별 이번 주말 갈 만한 곳 ({span})",
+                    "서울·부산·제주 등 전국 17개 시도별로 이번 주말 날씨, 축제, 덜 붐비는 관광지, 실내 명소와 맛집을 매일 골라 드립니다.",
+                    "/area", body, nav="area", image=img)
     return html_response(cached("area-index", build))
 
 
