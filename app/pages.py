@@ -478,13 +478,16 @@ def festival_month(ym: str):
     start = date(y, mo, 1)
     end = (date(y + (mo == 12), mo % 12 + 1, 1)) - timedelta(days=1)
     t = today()
-    if abs((start.year - t.year) * 12 + start.month - t.month) > 14:
+    diff = (start.year - t.year) * 12 + start.month - t.month
+    if diff < 0:                                   # 지난 달은 끝난 축제뿐이라 이번 달로
+        return RedirectResponse(f"/festival/{t:%Y-%m}", status_code=301)
+    if diff > 14:
         raise HTTPException(404)
 
     def build(conn):
         rows = conn.execute(f"""SELECT {COLS} FROM places p WHERE p.content_type = 15 AND p.event_start IS NOT NULL
-            AND p.event_start <= %(e)s AND p.event_end >= %(s)s
-            ORDER BY p.event_start, (p.image_url IS NULL), p.content_id LIMIT 600""", {"s": start, "e": end}).fetchall()
+            AND p.event_start <= %(e)s AND p.event_end >= %(s)s AND p.event_end >= %(t)s
+            ORDER BY p.event_start, (p.image_url IS NULL), p.content_id LIMIT 600""", {"s": start, "e": end, "t": t}).fetchall()
         by = {}
         for r in rows:
             by.setdefault(r["area_code"], []).append(r)
@@ -494,16 +497,14 @@ def festival_month(ym: str):
 
         def fcard(r):
             on = r["event_start"] <= t <= r["event_end"]
-            badge = "진행 중" if on else (f'{md(r["event_start"])} 시작' if r["event_start"] > t else "끝남")
-            if r["event_end"] < t:
-                badge = "끝남"
+            badge = "진행 중" if on else f'{md(r["event_start"])} 시작'
             return card(r, f'{md(r["event_start"])}~{md(r["event_end"])} · {where2(r["addr"])}', badge, fest=True)
         secs = "".join(f'<h2 id="{SLUG[c]}">{e(LONG[c])} <small>{len(by[c])}개</small></h2>' + grid(by[c], fcard)
                        for c, _ in AREAS if c in by)
         body = f"""<div class="crumb"><a href="/">반나절</a> › 축제 달력 › {y}년 {mo}월</div>
 <h1>{y}년 {mo}월 전국 축제 일정</h1>
-<p class="lead">{y}년 {mo}월에 열리는 축제·행사 {len(rows)}개를 지역별로 모았습니다. 한국관광공사 행사 정보 기준이며, 일정은 바뀔 수 있으니 가기 전에 주최 측 공지를 꼭 확인하세요.</p>
-<div class="mon"><a class="btn" href="/festival/{prev_m}">← {int(prev_m[5:])}월</a><a class="btn" href="/festival/{next_m}">{int(next_m[5:])}월 →</a></div>
+<p class="lead">{y}년 {mo}월에 열리는 축제·행사 가운데 {'지금 진행 중이거나 앞으로 열릴 ' if diff == 0 else ''}{len(rows)}개를 지역별로 모았습니다. 한국관광공사 행사 정보 기준이며, 일정은 바뀔 수 있으니 가기 전에 주최 측 공지를 꼭 확인하세요.</p>
+<div class="mon">{'' if diff == 0 else f'<a class="btn" href="/festival/{prev_m}">← {int(prev_m[5:])}월</a>'}<a class="btn" href="/festival/{next_m}">{int(next_m[5:])}월 →</a></div>
 <div class="chips" style="margin-top:10px">{jump}</div>
 {secs or '<p class="empty">이달 축제 정보가 아직 없어요.</p>'}"""
         ld = [{"@context": "https://schema.org", "@type": "Event", "name": r["title"],
@@ -660,14 +661,13 @@ def sitemap():
                 ("/theme", "weekly", "0.7"), ("/lab", "monthly", "0.3")]
         n = area_counts(conn)
         urls += [(f"/area/{s}", "daily", "0.8") for c, s in AREAS if n.get(c)]
-        for k in range(-1, 3):
-            mth = (t.replace(day=1) + timedelta(days=32 * k)).replace(day=1) if k >= 0 else \
-                (t.replace(day=1) - timedelta(days=1)).replace(day=1)
+        for k in range(0, 3):
+            mth = (t.replace(day=1) + timedelta(days=32 * k)).replace(day=1)
             urls.append((f"/festival/{mth:%Y-%m}", "daily", "0.7"))
         urls += [(f"/theme/{x['slug']}", "daily", "0.7") for x in THEMES]
         rows = conn.execute("""SELECT content_id FROM places WHERE overview IS NOT NULL AND overview <> ''
             AND (content_type <> 15 OR event_end >= %s) ORDER BY content_id LIMIT 45000""",
-                            (t - timedelta(days=60),)).fetchall()
+                            (t,)).fetchall()
         urls += [(f"/place/{r['content_id']}", "weekly", "0.5") for r in rows]
         seen, body = set(), []
         for u, f, pr in urls:
