@@ -197,7 +197,7 @@ def home(area: int | None = None, lat: float | None = Query(None, ge=33, le=39),
             WHERE {w} AND p.content_type = 15 AND p.event_start IS NOT NULL
               AND p.event_start <= (now() AT TIME ZONE 'Asia/Seoul')::date + 7
               AND p.event_end >= (now() AT TIME ZONE 'Asia/Seoul')::date
-            ORDER BY (p.image_url IS NULL), p.event_start, p.content_id LIMIT 10""", params).fetchall()
+            ORDER BY (p.image_url IS NULL), p.event_start, p.content_id LIMIT 12""", params).fetchall()
         # 이번 주말(다가오는 토·일) 예측이 낮은 관광지. 사진 있는 곳만 (첫 화면이라)
         calm = []
         try:
@@ -212,7 +212,7 @@ def home(area: int | None = None, lat: float | None = Query(None, ge=33, le=39),
                        p.lat, p.lon, round(wk.rate::numeric, 1)::float rate
                 FROM wk JOIN places p ON p.content_id = wk.content_id
                 WHERE {w} AND p.image_url IS NOT NULL AND wk.rate < 50
-                ORDER BY wk.rate, p.content_id LIMIT 10""", params).fetchall()
+                ORDER BY wk.rate, p.content_id LIMIT 12""", params).fetchall()
         except Exception:
             calm = []
         out = {"festivals": [dict(r) for r in fest],
