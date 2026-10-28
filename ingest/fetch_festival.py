@@ -68,7 +68,7 @@ def main():
         # 지역 코드(areaCode)로 거르면 0건이 오고 응답의 areacode 도 비어 있다(법정동 코드 체계로 바뀜).
         # 전국을 한 번에 받고, 법정동 시도 코드(lDongRegnCd)로 지역을 정해 고른다 (fetch_list.area_of).
         # 전국 축제는 수백 건이라 100건씩 몇 페이지면 끝난다.
-        page, saved, skipped, total, by = 1, 0, 0, None, {}
+        page, saved, skipped, total, by, miss = 1, 0, 0, None, {}, {}
         while True:
             try:
                 body = call(conn, OP, {"numOfRows": args.rows, "pageNo": page, "arrange": "C",
@@ -91,6 +91,8 @@ def main():
                         r = row_of(it, priority)
                         if r["area_code"] not in areas:
                             skipped += 1
+                            k = f"{it.get('lDongRegnCd')}/{(it.get('addr1') or '').split(' ')[0]}"
+                            miss[k] = miss.get(k, 0) + 1
                             continue
                         r["content_type"] = 15
                         cur.execute(UPSERT, r)
@@ -105,6 +107,8 @@ def main():
             page += 1
             time.sleep(0.2)
         print("지역별: " + ", ".join(f"{a}:{n}" for a, n in sorted(by.items())))
+        if miss:
+            print("못 고른 것(법정동코드/주소): " + ", ".join(f"{k}:{n}" for k, n in sorted(miss.items())))
         up = conn.execute("""SELECT count(*) c FROM places WHERE content_type = 15
                              AND event_end >= (now() AT TIME ZONE 'Asia/Seoul')::date""").fetchone()["c"]
         print(f"\n저장 {saved}건 (대상 지역 밖 {skipped}건) · 지금 진행 중이거나 앞으로 열릴 축제 {up}건")

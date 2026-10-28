@@ -63,11 +63,22 @@ LDONG_TO_AREA = {"11": 1, "28": 2, "30": 3, "27": 4, "29": 5, "26": 6, "31": 7, 
                  "46": 38, "50": 39}
 
 
+# 그래도 모르면 주소 앞머리로 (행정구역 개편으로 새 법정동 코드가 생겨도 주소는 읽힌다)
+ADDR_TO_AREA = [("서울", 1), ("인천", 2), ("대전", 3), ("대구", 4), ("광주", 5), ("부산", 6), ("울산", 7),
+                ("세종", 8), ("경기", 31), ("강원", 32), ("충청북", 33), ("충북", 33), ("충청남", 34), ("충남", 34),
+                ("경상북", 35), ("경북", 35), ("경상남", 36), ("경남", 36), ("전라북", 37), ("전북", 37),
+                ("전라남", 38), ("전남", 38), ("제주", 39)]
+
+
 def area_of(it):
     a = as_int(it.get("areacode"))
     if a:
         return a
-    return LDONG_TO_AREA.get(str(it.get("lDongRegnCd") or "").strip()[:2])
+    a = LDONG_TO_AREA.get(str(it.get("lDongRegnCd") or "").strip()[:2])
+    if a:
+        return a
+    addr = (it.get("addr1") or "").strip()
+    return next((code for name, code in ADDR_TO_AREA if addr.startswith(name)), None)
 
 
 def row_of(it, priority):
