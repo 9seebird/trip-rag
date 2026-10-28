@@ -228,9 +228,12 @@ def _short_days(items, now):
     for date, d in days.items():
         tmin = d["tmin"] if d["tmin"] is not None else (min(d["temps"]) if d["temps"] else None)
         tmax = d["tmax"] if d["tmax"] is not None else (max(d["temps"]) if d["temps"] else None)
+        # 발표 시각에 따라 맨 끝 날은 새벽 몇 시간만 들어온다 → 그런 날의 최저·최고는 믿지 않는다
+        enough = (d["tmin"] is not None or d["tmax"] is not None or len(d["temps"]) >= 18
+                  or date == min(days))                          # 오늘은 남은 시간만이라도 보여 준다
         out[date] = {"am": half(d["am"]), "pm": half(d["pm"]),
-                     "tmin": round(tmin) if tmin is not None else None,
-                     "tmax": round(tmax) if tmax is not None else None}
+                     "tmin": round(tmin) if tmin is not None and enough else None,
+                     "tmax": round(tmax) if tmax is not None and enough else None}
     return out, hours
 
 
@@ -309,8 +312,16 @@ def week(conn, lat, lon):
             short = {"days": days, "hours": hours}
             cache.put(conn, "weather", skey, short)
     mid = _mid(conn, lat, lon)
-    merged = dict((mid or {}).get("days") or {})
-    merged.update((short or {}).get("days") or {})      # 겹치는 날은 동네 단위 단기예보가 우선
+    # 겹치는 날은 동네 단위 단기예보가 우선. 단, 단기예보가 그날 일부(새벽 몇 시간)만 있으면
+    # 비어 있는 칸(오전·오후·기온)은 중기예보로 채운다
+    md, sd = (mid or {}).get("days") or {}, (short or {}).get("days") or {}
+    merged, from_short = {}, set()
+    for date in set(md) | set(sd):
+        s_, m_ = sd.get(date) or {}, md.get(date) or {}
+        row = {k: (s_.get(k) if s_.get(k) is not None else m_.get(k)) for k in ("am", "pm", "tmin", "tmax")}
+        if s_.get("am") and s_.get("pm"):
+            from_short.add(date)
+        merged[date] = row
     today = now.strftime("%Y%m%d")
     out_days = []
     for date in sorted(merged):
@@ -318,7 +329,7 @@ def week(conn, lat, lon):
             continue
         dt = datetime.strptime(date, "%Y%m%d")
         out_days.append({"date": dt.strftime("%Y-%m-%d"), "dow": DOW_KO[dt.weekday()],
-                         "src": "short" if short and date in short["days"] else "mid", **merged[date]})
+                         "src": "short" if date in from_short else "mid", **merged[date]})
     # 지금·시간별은 읽을 때 자른다 (캐시가 한 시간 묵어도 '지금' 은 맞게)
     nowkey = now.strftime("%Y%m%d%H00")
     hours = [h for h in (short or {}).get("hours", []) if h["t"] >= nowkey][:24]

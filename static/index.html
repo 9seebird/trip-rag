@@ -684,7 +684,7 @@ const wxIcon = wf => {
   if (/비/.test(wf)) return "🌧️";
   if (/흐림|흐리고/.test(wf)) return "☁️";
   if (/구름/.test(wf)) return "⛅";
-  return wf ? "☀️" : "·";
+  return wf ? "☀️" : "";
 };
 function wxSave(){ try { localStorage.setItem(WX_KEY, JSON.stringify(wxPlace)); } catch {} }
 function wxDefault(){
@@ -740,12 +740,12 @@ async function renderWx(){
     const pops = [am?.pop, pm?.pop].filter(v => v != null).map(Math.round);
     const popTxt = !pops.length ? "" : (same || pops.length < 2 || pops[0] === pops[1])
       ? `비 <b>${Math.max(...pops)}%</b>` : `비 오전 <b>${pops[0]}%</b> · 오후 <b>${pops[1]}%</b>`;
-    const desc = same ? esc(am?.wf || "") : `${esc(am?.wf || "")} → ${esc(pm?.wf || "")}`;
+    const desc = !am ? "아직 예보 발표 전이에요" : same ? esc(am?.wf || "") : `${esc(am?.wf || "")} → ${esc(pm?.wf || "")}`;
     return `<div class="wxd-day ${cls}">
       <span class="dn"><b>${dn}</b><small>${Number(d.date.slice(5, 7))}.${Number(d.date.slice(8))}</small></span>
       <span class="ic" title="${desc}">${same ? wxIcon(am?.wf) : wxIcon(am?.wf) + wxIcon(pm?.wf)}</span>
       <span class="pop"><span>${desc}</span>${popTxt ? `<small>${popTxt}</small>` : ""}</span>
-      <span class="tm">${d.tmin ?? "-"}° / <b>${d.tmax ?? "-"}°</b></span></div>`;
+      <span class="tm">${d.tmin == null && d.tmax == null ? "" : `${d.tmin ?? "-"}° / <b>${d.tmax ?? "-"}°</b>`}</span></div>`;
   }).join("");
   // 주말 비 소식이면 실내로, 맑으면 산책길로 바로 이어 찾기
   const wk = w.days.filter(d => d.dow === "토" || d.dow === "일").slice(0, 2);
