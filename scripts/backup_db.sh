@@ -20,7 +20,8 @@ cd "$ROOT" || exit 1
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
 DC=(docker compose -f "$COMPOSE_FILE")
 
-envv() { grep -E "^$1=" .env 2>/dev/null | head -1 | cut -d= -f2- | tr -d '\r"'; }
+# .env 값 읽기 (따옴표·줄 끝 # 설명·앞뒤 공백 제거)
+envv() { grep -E "^$1=" .env 2>/dev/null | head -1 | cut -d= -f2- | tr -d '\r"' | sed -E 's/[[:space:]]+#.*$//; s/^[[:space:]]+//; s/[[:space:]]+$//'; }
 DB_USER="$(envv POSTGRES_USER)"; DB_USER="${DB_USER:-triprag}"
 DB_NAME="$(envv POSTGRES_DB)";   DB_NAME="${DB_NAME:-triprag}"
 DIR="${BACKUP_DIR:-$(envv BACKUP_DIR)}"; DIR="${DIR:-$HOME/backups/trip-rag}"
