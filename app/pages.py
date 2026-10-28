@@ -322,7 +322,7 @@ def area_page(slug: str):
                   WHERE c.content_id IS NOT NULL AND c.ymd BETWEEN %(sat)s AND %(sun)s GROUP BY c.content_id)
                 SELECT {COLS}, wk.rate FROM wk JOIN places p ON p.content_id = wk.content_id
                 WHERE p.area_code = %(a)s AND p.image_url IS NOT NULL AND wk.rate < 50
-                ORDER BY wk.rate, p.content_id LIMIT 8""", p | {"sat": sat, "sun": sun}).fetchall()
+                ORDER BY {shuffle_sql()} LIMIT 8""", p | {"sat": sat, "sun": sun}).fetchall()
         except Exception:
             calm = []
         pick = lambda cond, n=8: conn.execute(f"""SELECT {COLS} FROM places p WHERE p.area_code = %(a)s

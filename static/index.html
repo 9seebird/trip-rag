@@ -354,6 +354,8 @@ body.has-result .home{display:none}
 .hmore{display:block;margin:12px auto 0;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;
   padding:8px 18px;font:inherit;font-size:13px;font-weight:600}
 .hmore[hidden]{display:none}
+.hshuffle{margin-left:auto !important;align-self:center;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);border-radius:999px;padding:3px 10px;font:inherit;font-size:12.5px;font-weight:600;margin-left:2px}
+.hshuffle:hover{border-color:var(--accent);color:var(--accent)}
 .hmore:hover{border-color:var(--accent);color:var(--accent)}
 .hcard{text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:14px;overflow:hidden;
   padding:0;font:inherit;color:var(--ink);display:flex;flex-direction:column;min-width:0}
@@ -1176,7 +1178,10 @@ async function loadContextWeather(){
   } catch { if (my === ctxSeq){ ctx.wx = null; renderQueryRows(); } }
 }
 
-let homeSeq = 0;
+let homeSeq = 0, calmPool = [], calmCardFn = null;
+function pickCalm(){
+  return calmPool.map(r => [Math.random() * (1 + (r.rate ?? 25) / 40), r]).sort((a, b) => a[0] - b[0]).slice(0, 12).map(x => x[1]);
+}
 async function loadHome(){
   const my = ++homeSeq;
   const where = state.near ? `lat=${state.near.lat.toFixed(3)}&lon=${state.near.lon.toFixed(3)}`
@@ -1201,8 +1206,13 @@ async function loadHome(){
   const parts = [];
   if (d.festivals?.length) parts.push(block("이번 주 열리는 축제", `${esc(place)} · 오늘부터 7일`,
     d.festivals.map(r => card(r, `${md(r.event_start)}${r.event_end !== r.event_start ? "~" + md(r.event_end) : ""}`, where2(r), "fest"))));
-  if (d.calm?.length) parts.push(block("이번 주말 여유로울 곳", `${esc(place)} · 관광지 집중률 예측`,
-    d.calm.map(r => card(r, `주말 ${esc(r.level)}`, where2(r)))));
+  // 여유로울 곳은 서버가 넉넉히 준 후보에서 매번 섞어 12곳 (덜 붐빌수록 앞에 올 확률이 높게)
+  calmPool = d.calm || [];
+  const calmCard = r => card(r, `주말 ${esc(r.level)}`, where2(r));
+  if (calmPool.length) parts.push(block("이번 주말 여유로울 곳", `${esc(place)} · 관광지 집중률 예측`, pickCalm().map(calmCard))
+    .replace('class="hgrid"', 'class="hgrid" id="calmGrid"')
+    .replace("</small></h2>", `</small>${calmPool.length > 12 ? `<button type="button" class="hshuffle" data-hshuffle>↻ 다른 곳</button>` : ""}</h2>`));
+  calmCardFn = calmCard;
   $("#home").innerHTML = parts.join("");
   homeMore();
 }
@@ -1219,6 +1229,11 @@ function homeMore(){
 }
 addEventListener("resize", homeMore);
 $("#home").addEventListener("click", e => {
+  if (e.target.closest("[data-hshuffle]")){
+    const g = $("#calmGrid");
+    if (g && calmCardFn){ g.innerHTML = pickCalm().map(calmCardFn).join(""); homeMore(); }
+    return;
+  }
   const m = e.target.closest("[data-hmore]");
   if (m){ m.previousElementSibling.classList.toggle("open"); homeMore(); return; }
   const c = e.target.closest("[data-hdetail]");

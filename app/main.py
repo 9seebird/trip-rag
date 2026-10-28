@@ -212,7 +212,15 @@ def home(area: int | None = None, lat: float | None = Query(None, ge=33, le=39),
                        p.lat, p.lon, round(wk.rate::numeric, 1)::float rate
                 FROM wk JOIN places p ON p.content_id = wk.content_id
                 WHERE {w} AND p.image_url IS NOT NULL AND wk.rate < 50
-                ORDER BY wk.rate, p.content_id LIMIT 12""", params).fetchall()
+                ORDER BY wk.rate, p.content_id LIMIT 120""", params).fetchall()
+            # 늘 같은 곳만 뜨지 않게 넉넉히(48곳) 뽑아 두고 화면이 매번 섞어 12곳을 보여 준다.
+            # 한 시군구에 몰리지 않게 먼저 시군구마다 3곳씩 고르고, 모자라면 덜 붐비는 순으로 채운다
+            per, pool, rest = {}, [], []
+            for r in calm:
+                k = " ".join((r["addr"] or "").split(" ")[:2])
+                (pool if per.get(k, 0) < 3 else rest).append(r)
+                per[k] = per.get(k, 0) + 1
+            calm = (pool + rest)[:48]
         except Exception:
             calm = []
         out = {"festivals": [dict(r) for r in fest],
