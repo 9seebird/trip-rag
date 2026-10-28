@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from ingest.config import EMBED_MODEL
 from ingest.db import connect
 from ingest.migrate import apply as apply_migrations
-from . import cache, limits, weather
+from . import cache, limits, pages, weather
 from .course import build as build_course
 from .extract import AREA_NAME
 from .search import attach_crowd, crowd_level, find as run_find, run as run_search
@@ -375,4 +375,5 @@ def lab():
     return FileResponse("static/lab.html")
 
 
+app.include_router(pages.router)       # 검색엔진용 고정 페이지 (/area, /festival, /theme, /place, /sitemap.xml)
 app.mount("/", StaticFiles(directory="static", html=True), name="static")

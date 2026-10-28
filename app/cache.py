@@ -11,7 +11,7 @@ import hashlib
 import json
 import random
 
-TTL_HOURS = {"find": 12, "course": 24, "weather": 1}
+TTL_HOURS = {"find": 12, "course": 24, "weather": 1, "page": 1}
 KEEP_DAYS = 7                     # 이보다 오래된 캐시는 가끔 한 번씩 지운다
 
 
