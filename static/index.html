@@ -148,6 +148,10 @@ body.has-result .chips{display:none}
 /* 폰 코스 화면: 검색창·지역 줄·빈 조건 줄을 접고, 지도는 낮게 → 코스 제목이 첫 화면에 보이게 */
 @media (max-width:600px){
   body.in-course .mapbox{height:200px}
+}
+/* 좁은 화면 코스: 카드 아래에 지도를 두고, 일정을 내려 보는 동안 위에 붙어 있게 */
+@media (max-width:960px){
+  #pane > .mapbox{position:sticky;top:8px;z-index:20;height:190px;margin:0 0 18px;box-shadow:0 6px 18px rgba(0,0,0,.12)}
   body.has-result .understood:empty{min-height:0;margin:0}
 }
 
@@ -923,6 +927,7 @@ function backToList(){
 }
 function showList(){
   document.body.classList.remove("in-course");
+  homeMap();
   if (new URLSearchParams(location.search).has("course")) history.replaceState(null, "", courseUrl(null));
   renderResults();
   requestAnimationFrame(() => window.scrollTo(0, view.listY));
@@ -943,6 +948,7 @@ window.addEventListener("popstate", e => {
 // 첫 화면으로: 결과·코스·지도를 걷고, 검색어 추천·축제를 다시 보여 준다
 function showHome(){
   document.body.classList.remove("has-result", "in-course");
+  homeMap();
   state.items = []; state.last = null; state.course = null;
   state.cond = {off: [], add: {}};
   $("#q").value = "";
@@ -999,6 +1005,19 @@ function mapReady(fn){
   }
 }
 
+// 폰·좁은 화면의 코스: 지도를 코스 카드 바로 아래로 옮겨 붙이고(스크롤해도 위에 붙어 있게), 그 밖에는 원래 자리로
+const narrow = () => matchMedia("(max-width:960px)").matches;
+function homeMap(){
+  const mb = $("#mapbox");
+  if (mb.parentElement !== $("#main")) $("#main").appendChild(mb);
+}
+function placeMap(){
+  const mb = $("#mapbox"), head = $("#pane .ch");
+  if (document.body.classList.contains("in-course") && narrow() && head){ if (head.nextElementSibling !== mb) head.after(mb); }
+  else homeMap();
+  if (state.map) requestAnimationFrame(() => state.map.relayout());
+}
+addEventListener("resize", () => { if (document.body.classList.contains("in-course")) placeMap(); });
 function clearMap(){
   state.overlays.forEach(o => o.setMap(null)); state.overlays = [];
   if (state.line){ state.line.setMap(null); state.line = null; }
@@ -1289,6 +1308,7 @@ async function search(push = true, keepCond = false){
   view.listY = 0;
   document.body.classList.add("has-result");
   document.body.classList.remove("in-course");
+  homeMap();
   $("#go").disabled = true;
   if (!keepCond) $("#understood").innerHTML = "";
   $("#wx").innerHTML = "";
@@ -1601,6 +1621,7 @@ function schedule(all){
 }
 
 function renderCourse(){
+  homeMap();                                  // 칸을 다시 그리기 전에 지도를 밖으로 (같이 지워지지 않게)
   const d = state.course;
   const all = [d.start, ...d.stops];
   const sch = schedule(all);
@@ -1672,6 +1693,7 @@ function renderCourse(){
   const replan = () => { state.plan = {day: +$("#planDay").value, min: +$("#planMin").value};
     const y = window.scrollY; renderCourse(); window.scrollTo(0, y); };
   $("#planDay").onchange = replan; $("#planMin").onchange = replan;
+  placeMap();
   mapCourse(all);
 }
 
