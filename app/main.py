@@ -15,7 +15,7 @@ from ingest.migrate import apply as apply_migrations
 from . import cache, limits, pages, weather
 from .course import build as build_course
 from .extract import AREA_NAME
-from .search import attach_crowd, crowd_level, find as run_find, run as run_search
+from .search import _row, attach_crowd, crowd_level, find as run_find, run as run_search
 
 # 운영(PUBLIC=1)에서는 API 문서·통계를 닫는다. 통계에는 비용이 찍힌다.
 PUBLIC = os.getenv("PUBLIC", "0") == "1"
@@ -227,6 +227,34 @@ def home(area: int | None = None, lat: float | None = Query(None, ge=33, le=39),
                "calm": [dict(r) | {"level": crowd_level(r["rate"])} for r in calm]}
         cache.put(conn, "home", key, out)
         return out | {"popular": popular_queries(conn)}
+
+
+def event_extra(r):
+    """축제·행사 소개정보(intro_raw)에서 화면에 쓸 것만: 장소, 주최, 관람 연령, 홈페이지."""
+    raw = r.get("intro_raw") or {}
+    clean = lambda v: re.sub(r"<br\s*/?>", "\n", re.sub(r"<(?!br)[^>]+>", "", str(v or ""))).strip() or None
+    hp = re.search(r'https?://[^"\'<>\s]+', str(raw.get("eventhomepage") or r.get("homepage") or ""))
+    return {"event_place": clean(raw.get("eventplace")), "sponsor": clean(raw.get("sponsor1")),
+            "agelimit": clean(raw.get("agelimit")), "spendtime": clean(raw.get("spendtimefestival")),
+            "event_homepage": hp.group(0) if hp else None}
+
+
+@app.get("/api/place/{cid}", dependencies=limited)
+def place(cid: int):
+    """장소 한 곳의 전체 정보 (첫 화면 카드처럼 목록에 소개글이 없을 때 상세 창이 부른다)."""
+    with connect() as conn:
+        r = conn.execute("SELECT * FROM places WHERE content_id = %s", (cid,)).fetchone()
+        if not r:
+            raise HTTPException(404)
+        r = dict(r)
+        out = _row(r) | {"image": r.get("image_url")}
+        for k in ("event_start", "event_end"):
+            if out.get(k) is not None:
+                out[k] = str(out[k])
+        if r["content_type"] == 15:
+            out |= event_extra(r)
+        attach_crowd(conn, [out])
+        return out
 
 
 @app.get("/api/weather", dependencies=limited)

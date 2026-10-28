@@ -194,6 +194,8 @@ body.has-result .chips{display:none}
 .card .addr{font-size:12.5px;color:var(--muted)}
 .card .snip{font-size:13.5px;color:var(--ink-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin:0}
 .actions{display:flex;gap:6px;margin-top:auto;padding-top:6px}
+.dx .actions{flex-wrap:wrap}
+.dx .actions .btn.primary{flex:1 0 100%;order:-1;padding:11px 14px}
 .btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 12px;font-size:13.5px;font-weight:600}
 .btn:hover{border-color:var(--ink-2)}
 .btn{white-space:nowrap}
@@ -1494,17 +1496,32 @@ function detail(id){
   const r = state.items.find(x => String(x.content_id) === String(id))
          || (state.homeItems || []).find(x => String(x.content_id) === String(id));
   if (!r) return;
+  // 첫 화면 카드(축제·여유로운 곳)는 목록에 소개글·운영시간이 없다 → 전체 정보를 받아 와서 다시 그린다
+  if (!r._full){
+    api(`/api/place/${encodeURIComponent(id)}`).then(x => {
+      Object.assign(r, x, {_full: true});
+      if ($("#dlg").open && $("#dlg").dataset.id === String(id)) detail(id);
+    }).catch(() => { r._full = true; });
+  }
   const today = new Date();
   const todayNote = closedOn(r.hours, today) ? `오늘(${DOW_NAME[dowOf(today)]}) 쉬는 날이에요`
     : (r.hours?.open != null ? `${clock(r.hours.open)}~${clock(r.hours.close)} (원문 기준 어림)` : "");
-  const facts = [["오늘", todayNote], ["운영시간", r.usetime], ["쉬는 날", r.restdate], ["요금", r.usefee], ["대표 메뉴", r.menu],
-                 ["주차", r.parking], ["문의", r.tel]].filter(([, v]) => v && String(v).trim());
+  const fest = Number(r.content_type) === 15;
+  const period = r.event_start ? `${r.event_start.replaceAll("-", ".")} ~ ${(r.event_end || "").replaceAll("-", ".")}` : "";
+  const strip = v => String(v ?? "").replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").trim();
+  const facts = (fest
+      ? [["기간", period], ["행사 장소", r.event_place], ["행사 시간", r.usetime], ["요금", r.usefee], ["주최", r.sponsor],
+         ["관람 연령", r.agelimit], ["문의", r.tel]]
+      : [["오늘", todayNote], ["운영시간", r.usetime], ["쉬는 날", r.restdate], ["요금", r.usefee], ["대표 메뉴", r.menu],
+         ["주차", r.parking], ["문의", r.tel]])
+    .map(([k, v]) => [k, strip(v)]).filter(([, v]) => v);
   const inResults = state.items.indexOf(r);
   const q = state.last?.query;
   const fbBox = q && inResults >= 0 ? `<div class="fbd">“${esc(q)}”에 맞는 곳이었나요?
       <button type="button" data-fbd="1" data-id="${r.content_id}" data-rank="${inResults + 1}" aria-pressed="${fbState(q, r.content_id) === 1}">👍 맞아요</button>
       <button type="button" data-fbd="-1" data-id="${r.content_id}" data-rank="${inResults + 1}" aria-pressed="${fbState(q, r.content_id) === -1}">👎 아니에요</button></div>` : "";
   const dlg = $("#dlg");
+  dlg.dataset.id = String(id);
   dlg.innerHTML = `<div class="dx">
     <button class="close" aria-label="닫기" data-close>×</button>
     <div class="ph">${photo(r)}</div>
@@ -1516,15 +1533,18 @@ function detail(id){
       ${crowdBlock(r)}
       ${factBlock("반려동물 동반", r.pet_info, PET_FIELDS)}
       ${factBlock("무장애 정보", r.access_info, ACCESS_FIELDS)}
-      ${r.overview || r.snippet ? `<div class="ov">${esc(r.overview || r.snippet)}</div>` : ""}
+      ${r.overview || r.snippet ? `<div class="ov">${esc(r.overview || r.snippet)}</div>`
+        : (r._full ? `<p class="ov" style="color:var(--muted)">소개글을 받아 오는 중이에요. 하루 안에 채워져요.</p>` : `<p class="ov" style="color:var(--muted)">불러오는 중…</p>`)}
       <div class="actions">
         <button class="btn" type="button" data-save="${r.content_id}">${isSaved(r.content_id) ? "♥ 저장됨" : "♡ 저장"}</button>
         ${r.lat ? `<a class="btn" target="_blank" rel="noopener" href="https://map.kakao.com/link/map/${encodeURIComponent(r.title)},${r.lat},${r.lon}">카카오맵</a>` : ""}
+        ${r.event_homepage ? `<a class="btn" target="_blank" rel="noopener nofollow" href="${esc(r.event_homepage)}">홈페이지</a>` : ""}
+        <a class="btn" href="/place/${r.content_id}">자세히</a>
         <button class="btn primary" data-course="${r.content_id}" data-close>여기서 반나절 코스</button>
       </div>
       ${fbBox}
     </div></div>`;
-  openSheet(dlg);
+  if (!dlg.open) openSheet(dlg);             // 정보를 받아 와 다시 그릴 때는 이미 열려 있다
 }
 $("#dlg").addEventListener("click", async e => {
   const f = e.target.closest("[data-fbd]");

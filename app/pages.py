@@ -576,8 +576,16 @@ def place_page(cid: int):
         facts = []
         if r.get("event_start"):
             facts.append(("기간", f'{r["event_start"]:%Y.%m.%d} ~ {r["event_end"]:%Y.%m.%d}'))
-        for k, lab in [("usetime", "운영시간"), ("restdate", "쉬는 날"), ("usefee", "요금"), ("menu", "대표 메뉴"),
-                       ("parking", "주차")]:
+        fest = r["content_type"] == 15
+        if fest:
+            from .main import event_extra
+            ex = event_extra(r)
+            for k, lab in [("event_place", "행사 장소"), ("sponsor", "주최"), ("agelimit", "관람 연령"),
+                           ("spendtime", "관람 소요")]:
+                if ex.get(k):
+                    facts.append((lab, clean(ex[k])))
+        for k, lab in [("usetime", "행사 시간" if fest else "운영시간"), ("restdate", "쉬는 날"),
+                       ("usefee", "요금"), ("menu", "대표 메뉴"), ("parking", "주차")]:
             v = clean(r.get(k))
             if v:
                 facts.append((lab, v))
@@ -605,6 +613,8 @@ def place_page(cid: int):
                                 {"id": cid, "lat": r["lat"], "lon": r["lon"]}).fetchall()
         img = r.get("image_url")
         hero = f'<div class="hero"><img src="{e(https(img))}" alt="{e(r["title"])}" onerror="this.remove()"></div>' if img else ""
+        hp = (event_extra(r).get("event_homepage") if fest else None) if fest else None
+        home_btn = f'<a class="btn" target="_blank" rel="noopener nofollow" href="{e(hp)}">공식 홈페이지</a>' if hp else ""
         mapl = (f'<a class="btn" target="_blank" rel="noopener" href="https://map.kakao.com/link/map/'
                 f'{e(r["title"])},{r["lat"]},{r["lon"]}">카카오맵</a>') if r.get("lat") else ""
         course = "" if r["content_type"] == 15 else f'<a class="cta" href="/?course={cid}">여기서 반나절 코스 짜기</a>'
@@ -617,8 +627,8 @@ def place_page(cid: int):
 <div>{tags}</div><h1>{e(r["title"])}</h1>
 <p class="lead" style="margin-bottom:6px">{e(addr)}</p>
 {hero}
-<div class="cols"><div>{f'<div class="ov">{e(ov)}</div>' if ov else '<p class="empty">소개글이 아직 없어요.</p>'}
-<div class="acts">{course}{mapl}{f'<a class="btn" href="/area/{slug}">{e(name)} 이번 주말</a>' if slug else ''}</div></div>
+<div class="cols"><div>{f'<div class="ov">{e(ov)}</div>' if ov else '<p class="empty">소개글을 받아 오는 중이에요. 하루 안에 채워져요.</p>'}
+<div class="acts">{course}{home_btn}{mapl}{f'<a class="btn" href="/area/{slug}">{e(name)} 이번 주말</a>' if slug else ''}</div></div>
 <div class="box"><dl class="facts">{''.join(f'<dt>{k}</dt><dd>{e(v)}</dd>' for k, v in facts) or '<dd>정보가 아직 없어요.</dd>'}</dl>
 <p style="font-size:12px;color:var(--muted);margin:12px 0 0">한국관광공사 정보 기준이에요. 운영시간·요금은 바뀔 수 있으니 방문 전에 확인하세요.</p></div></div>
 {f'<h2>근처 가볼 만한 곳 <small>{e(r["title"])} 주변</small></h2>' + grid(near, lambda x: card(x, TYPE.get(x["content_type"], ""))) if near else ''}"""
