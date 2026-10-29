@@ -203,19 +203,18 @@ h2 small a{color:var(--accent);text-decoration:none}
 .mon{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0 4px}
 .empty{color:var(--muted);padding:20px 0}
 .adfit{display:flex;justify-content:center;align-items:center;margin:36px auto 6px;min-height:90px;width:100%;overflow:hidden}
-.adfit.empty{display:none}
 @media (max-width:799px){.adfit{min-height:100px}}
 footer{border-top:1px solid var(--line);margin-top:40px;padding:22px 0 40px;font-size:12.5px;color:var(--muted);line-height:1.8}
 footer nav{display:flex;flex-wrap:wrap;gap:4px 14px;margin-bottom:8px}footer nav a{color:var(--ink-2);text-decoration:none;font-weight:600}
 """
 
-AD_JS = """(function(){var box=document.getElementById("adfit");if(!box)return;
-var m=window.matchMedia("(max-width: 799px)").matches;
-var ad=m?{unit:"DAN-05aYFOoiSIa6Ch4w",w:320,h:100}:{unit:"DAN-30fMubWb77Sswjvi",w:728,h:90};
-window.__banajeolAdFail=function(){box.classList.add("empty");};
-var ins=document.createElement("ins");ins.className="kakao_ad_area";ins.style.display="block";ins.style.maxWidth="100%";
-ins.setAttribute("data-ad-unit",ad.unit);ins.setAttribute("data-ad-width",String(ad.w));ins.setAttribute("data-ad-height",String(ad.h));
-ins.setAttribute("data-ad-onfail","__banajeolAdFail");box.appendChild(ins);
+# 카카오 애드핏 (매체: 여행사이트). 광고 칸은 HTML 에 PC 단위로 두고(심사가 설치를 알아보게),
+# 폰이면 애드핏 스크립트를 불러오기 전에 모바일 단위로 바꾼다. 심사 중에도 칸을 접지 않는다.
+AD_INS = ('<ins class="kakao_ad_area" style="display:block;max-width:100%" data-ad-unit="DAN-30fMubWb77Sswjvi" '
+          'data-ad-width="728" data-ad-height="90"></ins>')
+AD_JS = """(function(){var ins=document.querySelector("#adfit .kakao_ad_area");if(!ins)return;
+if(window.matchMedia("(max-width: 799px)").matches){ins.setAttribute("data-ad-unit","DAN-05aYFOoiSIa6Ch4w");
+ins.setAttribute("data-ad-width","320");ins.setAttribute("data-ad-height","100");}
 var s=document.createElement("script");s.async=true;s.src="https://t1.kakaocdn.net/kas/static/ba.min.js";document.body.appendChild(s);})();"""
 
 LOGO = ("<svg width='16' height='16' viewBox='0 0 32 32' aria-hidden='true'><path d='M8 21a8 8 0 0 1 16 0' fill='none' "
@@ -242,7 +241,7 @@ def page(title, desc, path, body, *, jsonld=None, image=None, nav=None, noindex=
 <style>{CSS}</style>{ld}</head><body>
 <div class="wrap"><header class="top"><a class="brand" href="/"><i>{LOGO}</i>반나절 <small>말로 찾는 여행 코스</small></a>
 <nav aria-label="둘러보기">{navh}</nav></header></div>
-<main class="wrap">{body}<div class="adfit" id="adfit" aria-label="광고"></div></main>
+<main class="wrap">{body}<div class="adfit" id="adfit" aria-label="광고">{AD_INS}</div></main>
 <div class="wrap"><footer><nav><a href="/area">지역별 이번 주말</a><a href="/festival">축제 달력</a><a href="/theme">테마 여행</a><a href="/">말로 찾기</a></nav>
 <b>관광정보 출처</b> 한국관광공사 (TourAPI · 공공데이터포털). 장소 사진의 저작권은 한국관광공사와 원 저작자에게 있습니다.<br>
 날씨는 기상청 단기·중기예보, 혼잡 예상은 한국관광공사 관광지 집중률 예측입니다. 운영시간·휴무는 방문 전에 꼭 확인해 주세요.<br>

@@ -287,7 +287,6 @@ dialog::backdrop{background:rgba(10,12,10,.45)}
 .adfit .kakao_ad_area{margin:0 auto}
 /* PC 광고(728px)는 칸이 728px 이상일 때만. 그보다 좁으면(태블릿 세로·좁힌 창) 모바일 광고(320px)를 가운데에 */
 @media (max-width:799px){.adfit{min-height:100px}}
-.adfit.empty{display:none}
 footer{border-top:1px solid var(--line);padding:22px 0 40px;font-size:12.5px;color:var(--muted);line-height:1.7}
 footer b{color:var(--ink-2)}
 .foot-nav{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:8px}
@@ -480,8 +479,9 @@ body.has-result .home{display:none}
       <button type="button" class="maplock" id="mapLock">지도 고정</button></div>
   </div>
 
-  <!-- 광고(카카오 애드핏) — 화면 크기에 맞는 광고단위를 아래 스크립트가 넣습니다 -->
-  <div class="adfit" id="adfit" aria-label="광고"></div>
+  <!-- 광고(카카오 애드핏, 매체: 여행사이트) — 기본 설치 코드처럼 HTML 에 광고 칸을 바로 둔다 (심사가 설치를 알아보게).
+       PC 단위로 두고, 폰이면 아래 스크립트가 애드핏을 불러오기 전에 모바일 단위로 바꾼다 -->
+  <div class="adfit" id="adfit" aria-label="광고"><ins class="kakao_ad_area" style="display:block;max-width:100%" data-ad-unit="DAN-30fMubWb77Sswjvi" data-ad-width="728" data-ad-height="90"></ins></div>
 
   <footer>
     <b>관광정보 출처</b> 한국관광공사 (TourAPI · 공공데이터포털). 장소 사진의 저작권은 한국관광공사와 원 저작자에게 있습니다.<br>
@@ -1792,21 +1792,15 @@ boot();
 </script>
 <script>
 // 카카오 애드핏 (매체: 여행사이트 / trip.trendkit.app)
-// 애드핏 스크립트는 불러올 때 화면에 있는 광고 칸만 채우므로, 화면 크기에 맞는 칸 하나를 먼저 만든 뒤 불러온다.
-// 보여줄 광고가 없으면(심사 중·미노출) 빈 칸을 접는다.
+// 광고 칸은 HTML 에 PC 단위(728x90)로 들어 있다. 폰이면 애드핏 스크립트를 불러오기 전에 모바일 단위(320x100)로 바꾼다.
+// 심사 중에도 칸을 접지 않는다 (접으면 심사에서 광고 영역이 안 보인다).
 (function(){
-  var box=document.getElementById("adfit"); if(!box) return;
-  // 페이지 양옆 여백(24px×2)을 빼고 728px 광고가 다 들어가는 너비부터 PC 광고
-  var m=window.matchMedia("(max-width: 799px)").matches;
-  var ad=m?{unit:"DAN-05aYFOoiSIa6Ch4w",w:320,h:100}:{unit:"DAN-30fMubWb77Sswjvi",w:728,h:90};
-  window.__banajeolAdFail=function(){box.classList.add("empty");};
-  var ins=document.createElement("ins");
-  ins.className="kakao_ad_area"; ins.style.display="block"; ins.style.maxWidth="100%";
-  ins.setAttribute("data-ad-unit",ad.unit);
-  ins.setAttribute("data-ad-width",String(ad.w));
-  ins.setAttribute("data-ad-height",String(ad.h));
-  ins.setAttribute("data-ad-onfail","__banajeolAdFail");
-  box.appendChild(ins);
+  var ins=document.querySelector("#adfit .kakao_ad_area"); if(!ins) return;
+  if(window.matchMedia("(max-width: 799px)").matches){
+    ins.setAttribute("data-ad-unit","DAN-05aYFOoiSIa6Ch4w");
+    ins.setAttribute("data-ad-width","320");
+    ins.setAttribute("data-ad-height","100");
+  }
   var s=document.createElement("script"); s.async=true; s.src="https://t1.kakaocdn.net/kas/static/ba.min.js";
   document.body.appendChild(s);
 })();
