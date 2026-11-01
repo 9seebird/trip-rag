@@ -204,6 +204,9 @@ h2 small a{color:var(--accent);text-decoration:none}
 .empty{color:var(--muted);padding:20px 0}
 .adfit{display:flex;justify-content:center;align-items:center;margin:36px auto 6px;min-height:90px;width:100%;overflow:hidden}
 @media (max-width:799px){.adfit{min-height:100px}}
+.adrail{position:fixed;top:50%;transform:translateY(-50%);right:max(12px,calc((100vw - 1180px)/4 - 80px));width:160px;height:600px;z-index:5}
+@media (max-width:1547px),(max-height:679px){.adrail{display:none}}
+.adfit-mid{margin:20px auto 8px}
 footer{border-top:1px solid var(--line);margin-top:40px;padding:22px 0 40px;font-size:12.5px;color:var(--muted);line-height:1.8}
 footer nav{display:flex;flex-wrap:wrap;gap:4px 14px;margin-bottom:8px}footer nav a{color:var(--ink-2);text-decoration:none;font-weight:600}
 """
@@ -211,12 +214,19 @@ footer nav{display:flex;flex-wrap:wrap;gap:4px 14px;margin-bottom:8px}footer nav
 # 주의: 광고 칸 id 를 "adfit" 로 두면 window.adfit(애드핏 SDK 이름)과 겹쳐 SDK 가 광고를 부르지 않는다.
 # 카카오 애드핏 (매체: 여행사이트). 광고 칸은 HTML 에 PC 단위로 두고(심사가 설치를 알아보게),
 # 폰이면 애드핏 스크립트를 불러오기 전에 모바일 단위로 바꾼다. 심사 중에도 칸을 접지 않는다.
-AD_INS = ('<ins class="kakao_ad_area" style="display:block;max-width:100%" data-ad-unit="DAN-30fMubWb77Sswjvi" '
-          'data-ad-width="728" data-ad-height="90"></ins>')
-AD_JS = """(function(){var ins=document.querySelector("#adSlot .kakao_ad_area");if(!ins)return;
-if(window.matchMedia("(max-width: 799px)").matches){ins.setAttribute("data-ad-unit","DAN-05aYFOoiSIa6Ch4w");
-ins.setAttribute("data-ad-width","320");ins.setAttribute("data-ad-height","100");}
-var s=document.createElement("script");s.async=true;s.src="https://t1.kakaocdn.net/kas/static/ba.min.js";document.body.appendChild(s);})();"""
+AD_INS = '<ins class="kakao_ad_area" style="display:block;max-width:100%" data-ad-unit="DAN-30fMubWb77Sswjvi" data-m-unit="DAN-05aYFOoiSIa6Ch4w" data-ad-width="728" data-ad-height="90"></ins>'
+AD_MID = '<div class="adfit adfit-mid" id="adMid" aria-label="광고"><ins class="kakao_ad_area" style="display:block;max-width:100%" data-ad-unit="DAN-yoxzeBvBvwaxCJUU" data-m-unit="DAN-BMRMkweIsZEuR7IZ" data-ad-width="728" data-ad-height="90"></ins></div>'
+AD_JS = '(function(){var narrow=window.matchMedia("(max-width: 799px)").matches;[].forEach.call(document.querySelectorAll(".adfit .kakao_ad_area[data-m-unit]"),function(i){if(narrow){i.setAttribute("data-ad-unit",i.getAttribute("data-m-unit"));i.setAttribute("data-ad-width","320");i.setAttribute("data-ad-height","100");}});var rail=document.getElementById("adRail");if(rail){if(window.matchMedia("(min-width: 1548px) and (min-height: 680px)").matches){var r=document.createElement("ins");r.className="kakao_ad_area";r.style.cssText="display:block;width:160px;height:600px";r.setAttribute("data-ad-unit","DAN-iylrRnJVgnPgObT8");r.setAttribute("data-ad-width","160");r.setAttribute("data-ad-height","600");rail.appendChild(r);}else{rail.parentNode.removeChild(rail);}}var s=document.createElement("script");s.async=true;s.src="https://t1.kakaocdn.net/kas/static/ba.min.js";document.body.appendChild(s);})();'
+
+
+def with_mid_ad(body):
+    """본문 두 번째 소제목(<h2) 앞에 중간 광고를 넣는다. 소제목이 하나뿐이거나 끝 쪽이면 넣지 않는다(하단 광고와 붙지 않게)."""
+    i = body.find("<h2")
+    j = body.find("<h2", i + 1) if i >= 0 else -1
+    if j <= 0 or j > len(body) * 0.75:
+        return body
+    return body[:j] + AD_MID + body[j:]
+
 
 LOGO = ("<svg width='16' height='16' viewBox='0 0 32 32' aria-hidden='true'><path d='M8 21a8 8 0 0 1 16 0' fill='none' "
         "stroke='#fff' stroke-width='2.6' stroke-linecap='round'/><circle cx='16' cy='12' r='2.4' fill='#fdba74'/></svg>")
@@ -242,7 +252,8 @@ def page(title, desc, path, body, *, jsonld=None, image=None, nav=None, noindex=
 <style>{CSS}</style>{ld}</head><body>
 <div class="wrap"><header class="top"><a class="brand" href="/"><i>{LOGO}</i>반나절 <small>말로 찾는 여행 코스</small></a>
 <nav aria-label="둘러보기">{navh}</nav></header></div>
-<main class="wrap">{body}<div class="adfit" id="adSlot" aria-label="광고">{AD_INS}</div></main>
+<main class="wrap">{with_mid_ad(body)}<div class="adfit" id="adSlot" aria-label="광고">{AD_INS}</div></main>
+<div class="adrail" id="adRail" aria-label="광고"></div>
 <div class="wrap"><footer><nav><a href="/area">지역별 이번 주말</a><a href="/festival">축제 달력</a><a href="/theme">테마 여행</a><a href="/">말로 찾기</a></nav>
 <b>관광정보 출처</b> 한국관광공사 (TourAPI · 공공데이터포털). 장소 사진의 저작권은 한국관광공사와 원 저작자에게 있습니다.<br>
 날씨는 기상청 단기·중기예보, 혼잡 예상은 한국관광공사 관광지 집중률 예측입니다. 운영시간·휴무는 방문 전에 꼭 확인해 주세요.<br>

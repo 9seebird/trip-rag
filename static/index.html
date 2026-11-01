@@ -287,6 +287,9 @@ dialog::backdrop{background:rgba(10,12,10,.45)}
 .adfit .kakao_ad_area{margin:0 auto}
 /* PC 광고(728px)는 칸이 728px 이상일 때만. 그보다 좁으면(태블릿 세로·좁힌 창) 모바일 광고(320px)를 가운데에 */
 @media (max-width:799px){.adfit{min-height:100px}}
+.adrail{position:fixed;top:50%;transform:translateY(-50%);right:max(12px,calc((100vw - 1440px)/4 - 80px));width:160px;height:600px;z-index:5}
+@media (max-width:1807px),(max-height:679px){.adrail{display:none}}
+.adfit-mid{margin:20px auto 8px}
 footer{border-top:1px solid var(--line);padding:22px 0 40px;font-size:12.5px;color:var(--muted);line-height:1.7}
 footer b{color:var(--ink-2)}
 .foot-nav{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:8px}
@@ -467,6 +470,9 @@ body.has-result .home{display:none}
     <div id="qrows"></div>
   </section>
 
+  <!-- 광고: 중간(검색창 아래) -->
+  <div class="adfit adfit-mid" id="adMid" aria-label="광고"><ins class="kakao_ad_area" style="display:block;max-width:100%" data-ad-unit="DAN-yoxzeBvBvwaxCJUU" data-m-unit="DAN-BMRMkweIsZEuR7IZ" data-ad-width="728" data-ad-height="90"></ins></div>
+
   <section class="home" id="home" aria-live="polite"></section>
 
   <div class="understood" id="understood"></div>
@@ -481,7 +487,9 @@ body.has-result .home{display:none}
 
   <!-- 광고(카카오 애드핏, 매체: 여행사이트) — 기본 설치 코드처럼 HTML 에 광고 칸을 바로 둔다 (심사가 설치를 알아보게).
        PC 단위로 두고, 폰이면 아래 스크립트가 애드핏을 불러오기 전에 모바일 단위로 바꾼다 -->
-  <div class="adfit" id="adSlot" aria-label="광고"><ins class="kakao_ad_area" style="display:block;max-width:100%" data-ad-unit="DAN-30fMubWb77Sswjvi" data-ad-width="728" data-ad-height="90"></ins></div>
+  <div class="adfit" id="adSlot" aria-label="광고"><ins class="kakao_ad_area" style="display:block;max-width:100%" data-ad-unit="DAN-30fMubWb77Sswjvi" data-m-unit="DAN-05aYFOoiSIa6Ch4w" data-ad-width="728" data-ad-height="90"></ins></div>
+
+  <div class="adrail" id="adRail" aria-label="광고"></div>
 
   <footer>
     <b>관광정보 출처</b> 한국관광공사 (TourAPI · 공공데이터포털). 장소 사진의 저작권은 한국관광공사와 원 저작자에게 있습니다.<br>
@@ -1791,20 +1799,11 @@ $("#f").addEventListener("submit", e => { e.preventDefault(); search(); });
 boot();
 </script>
 <script>
-// 카카오 애드핏 (매체: 여행사이트 / trip.trendkit.app)
+// 카카오 애드핏 (매체: 여행사이트 / trip.trendkit.app) — 하단·중간(728x90, 폰은 320x100), 넓은 PC 는 오른쪽 세로(160x600)
 // 주의: 광고 칸 id 를 "adfit" 로 두면 window.adfit(애드핏 SDK 이름)과 겹쳐 SDK 가 아무 광고도 부르지 않는다.
-// 광고 칸은 HTML 에 PC 단위(728x90)로 들어 있다. 폰이면 애드핏 스크립트를 불러오기 전에 모바일 단위(320x100)로 바꾼다.
-// 심사 중에도 칸을 접지 않는다 (접으면 심사에서 광고 영역이 안 보인다).
-(function(){
-  var ins=document.querySelector("#adSlot .kakao_ad_area"); if(!ins) return;
-  if(window.matchMedia("(max-width: 799px)").matches){
-    ins.setAttribute("data-ad-unit","DAN-05aYFOoiSIa6Ch4w");
-    ins.setAttribute("data-ad-width","320");
-    ins.setAttribute("data-ad-height","100");
-  }
-  var s=document.createElement("script"); s.async=true; s.src="https://t1.kakaocdn.net/kas/static/ba.min.js";
-  document.body.appendChild(s);
-})();
+// 광고 칸은 HTML 에 PC 단위로 두고, 폰이면 애드핏 스크립트를 불러오기 전에 data-m-unit(모바일 단위)으로 바꾼다.
+// 세로 광고는 화면 양옆에 160px 이 남을 때만 만든다(본문을 가리지 않게).
+(function(){var narrow=window.matchMedia("(max-width: 799px)").matches;[].forEach.call(document.querySelectorAll(".adfit .kakao_ad_area[data-m-unit]"),function(i){if(narrow){i.setAttribute("data-ad-unit",i.getAttribute("data-m-unit"));i.setAttribute("data-ad-width","320");i.setAttribute("data-ad-height","100");}});var rail=document.getElementById("adRail");if(rail){if(window.matchMedia("(min-width: 1808px) and (min-height: 680px)").matches){var r=document.createElement("ins");r.className="kakao_ad_area";r.style.cssText="display:block;width:160px;height:600px";r.setAttribute("data-ad-unit","DAN-iylrRnJVgnPgObT8");r.setAttribute("data-ad-width","160");r.setAttribute("data-ad-height","600");rail.appendChild(r);}else{rail.parentNode.removeChild(rail);}}var s=document.createElement("script");s.async=true;s.src="https://t1.kakaocdn.net/kas/static/ba.min.js";document.body.appendChild(s);})();
 </script>
 </body>
 </html>
