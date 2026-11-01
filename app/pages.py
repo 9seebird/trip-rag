@@ -208,11 +208,12 @@ footer{border-top:1px solid var(--line);margin-top:40px;padding:22px 0 40px;font
 footer nav{display:flex;flex-wrap:wrap;gap:4px 14px;margin-bottom:8px}footer nav a{color:var(--ink-2);text-decoration:none;font-weight:600}
 """
 
+# 주의: 광고 칸 id 를 "adfit" 로 두면 window.adfit(애드핏 SDK 이름)과 겹쳐 SDK 가 광고를 부르지 않는다.
 # 카카오 애드핏 (매체: 여행사이트). 광고 칸은 HTML 에 PC 단위로 두고(심사가 설치를 알아보게),
 # 폰이면 애드핏 스크립트를 불러오기 전에 모바일 단위로 바꾼다. 심사 중에도 칸을 접지 않는다.
 AD_INS = ('<ins class="kakao_ad_area" style="display:block;max-width:100%" data-ad-unit="DAN-30fMubWb77Sswjvi" '
           'data-ad-width="728" data-ad-height="90"></ins>')
-AD_JS = """(function(){var ins=document.querySelector("#adfit .kakao_ad_area");if(!ins)return;
+AD_JS = """(function(){var ins=document.querySelector("#adSlot .kakao_ad_area");if(!ins)return;
 if(window.matchMedia("(max-width: 799px)").matches){ins.setAttribute("data-ad-unit","DAN-05aYFOoiSIa6Ch4w");
 ins.setAttribute("data-ad-width","320");ins.setAttribute("data-ad-height","100");}
 var s=document.createElement("script");s.async=true;s.src="https://t1.kakaocdn.net/kas/static/ba.min.js";document.body.appendChild(s);})();"""
@@ -241,7 +242,7 @@ def page(title, desc, path, body, *, jsonld=None, image=None, nav=None, noindex=
 <style>{CSS}</style>{ld}</head><body>
 <div class="wrap"><header class="top"><a class="brand" href="/"><i>{LOGO}</i>반나절 <small>말로 찾는 여행 코스</small></a>
 <nav aria-label="둘러보기">{navh}</nav></header></div>
-<main class="wrap">{body}<div class="adfit" id="adfit" aria-label="광고">{AD_INS}</div></main>
+<main class="wrap">{body}<div class="adfit" id="adSlot" aria-label="광고">{AD_INS}</div></main>
 <div class="wrap"><footer><nav><a href="/area">지역별 이번 주말</a><a href="/festival">축제 달력</a><a href="/theme">테마 여행</a><a href="/">말로 찾기</a></nav>
 <b>관광정보 출처</b> 한국관광공사 (TourAPI · 공공데이터포털). 장소 사진의 저작권은 한국관광공사와 원 저작자에게 있습니다.<br>
 날씨는 기상청 단기·중기예보, 혼잡 예상은 한국관광공사 관광지 집중률 예측입니다. 운영시간·휴무는 방문 전에 꼭 확인해 주세요.<br>

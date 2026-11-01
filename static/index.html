@@ -481,7 +481,7 @@ body.has-result .home{display:none}
 
   <!-- 광고(카카오 애드핏, 매체: 여행사이트) — 기본 설치 코드처럼 HTML 에 광고 칸을 바로 둔다 (심사가 설치를 알아보게).
        PC 단위로 두고, 폰이면 아래 스크립트가 애드핏을 불러오기 전에 모바일 단위로 바꾼다 -->
-  <div class="adfit" id="adfit" aria-label="광고"><ins class="kakao_ad_area" style="display:block;max-width:100%" data-ad-unit="DAN-30fMubWb77Sswjvi" data-ad-width="728" data-ad-height="90"></ins></div>
+  <div class="adfit" id="adSlot" aria-label="광고"><ins class="kakao_ad_area" style="display:block;max-width:100%" data-ad-unit="DAN-30fMubWb77Sswjvi" data-ad-width="728" data-ad-height="90"></ins></div>
 
   <footer>
     <b>관광정보 출처</b> 한국관광공사 (TourAPI · 공공데이터포털). 장소 사진의 저작권은 한국관광공사와 원 저작자에게 있습니다.<br>
@@ -1792,10 +1792,11 @@ boot();
 </script>
 <script>
 // 카카오 애드핏 (매체: 여행사이트 / trip.trendkit.app)
+// 주의: 광고 칸 id 를 "adfit" 로 두면 window.adfit(애드핏 SDK 이름)과 겹쳐 SDK 가 아무 광고도 부르지 않는다.
 // 광고 칸은 HTML 에 PC 단위(728x90)로 들어 있다. 폰이면 애드핏 스크립트를 불러오기 전에 모바일 단위(320x100)로 바꾼다.
 // 심사 중에도 칸을 접지 않는다 (접으면 심사에서 광고 영역이 안 보인다).
 (function(){
-  var ins=document.querySelector("#adfit .kakao_ad_area"); if(!ins) return;
+  var ins=document.querySelector("#adSlot .kakao_ad_area"); if(!ins) return;
   if(window.matchMedia("(max-width: 799px)").matches){
     ins.setAttribute("data-ad-unit","DAN-05aYFOoiSIa6Ch4w");
     ins.setAttribute("data-ad-width","320");
