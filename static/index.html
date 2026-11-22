@@ -279,14 +279,27 @@ body.in-course .main{padding-top:6px}
 .stay{font-size:12px;color:var(--muted);margin:0 0 14px}
 .links{display:flex;gap:10px;margin-top:5px;font-size:12.5px}
 .links a{color:var(--accent);text-decoration:none;font-weight:600}
-.outside{margin:0 0 4px;padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);text-align:left}
-.outside h4{margin:0 0 2px;font-size:15px}
-.similar-h{margin:18px 0 10px;font-size:15px}.outside .sub{font-size:12.5px;color:var(--muted);margin:0 0 10px}
-.outside ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-.outside li{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
-.outside li b{font-size:14.5px}.outside li small{display:block;color:var(--muted);font-size:12.5px}
-.outside a{white-space:nowrap;font-size:13px;font-weight:600;color:var(--accent);text-decoration:none}
-.outside a:hover{text-decoration:underline}
+.outside{margin:0 0 6px;text-align:left}
+.outside .oh{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;margin:0 0 10px}
+.outside h4{margin:0;font-size:16px;letter-spacing:-.02em}
+.outside .sub{font-size:12.5px;color:var(--muted);margin:0}
+.outside .og{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.outside a.oc{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--line);
+  border-radius:12px;text-decoration:none;color:var(--ink);transition:border-color .15s,box-shadow .15s}
+.outside a.oc[hidden]{display:none}
+.outside a.oc:hover{border-color:var(--warm);box-shadow:var(--shadow)}
+.outside .ol{flex:none;width:24px;height:24px;border-radius:50%;background:var(--warm);color:#fff;font-size:12px;font-weight:700;
+  display:grid;place-items:center}
+.outside .ot{min-width:0;flex:1}
+.outside .ot b{display:block;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.outside .ot small{display:block;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.outside .oa{flex:none;color:var(--muted);font-size:14px}
+.outside .more{margin-top:8px;border:0;background:none;color:var(--accent);font-size:13px;font-weight:600;padding:4px 0}
+@media (max-width:600px){.outside .og{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.outside a.oc{padding:9px 10px;gap:8px;min-width:0}
+  .outside .oa{display:none}.outside .ol{width:20px;height:20px;font-size:11px}.outside .ot b{font-size:14px}}
+.similar-h{margin:22px 0 10px;font-size:16px;letter-spacing:-.02em}
+.similar-h .muted-s{font-size:12.5px;font-weight:500;color:var(--muted);letter-spacing:0}
+.mk.dot.k{background:var(--warm)}
 .note{font-size:12.5px;color:var(--muted);margin-top:10px;padding:10px 12px;background:var(--surface-2);border-radius:10px}
 
 /* ── 상세 시트 ─────────────────────────── */
@@ -1073,9 +1086,15 @@ function fit(points){
   state.map.setBounds(b, 40, 40, 40, 40);
 }
 
-function mapResults(items){
+function mapResults(items, outside = []){
   mapReady(() => {
     clearMap();
+    const out = (outside || []).filter(p => p.lat && p.lon);
+    out.forEach((p, i) => {
+      if (i >= OUT_SHOW && !state.outAll) return;
+      const el = mark(p.lat, p.lon, OUT_LABEL[i] || "", "dot k", () => p.url && window.open(p.url, "_blank", "noopener"));
+      el.title = p.name;
+    });
     const pts = items.filter(i => i.lat && i.lon);
     pts.forEach(i => {
       const idx = items.indexOf(i);
@@ -1087,8 +1106,8 @@ function mapResults(items){
     });
     if (state.near){                                       // 내 위치 표시, 내 위치 + 결과 전부가 보이게
       mark(state.near.lat, state.near.lon, "", "me");
-      fit([state.near, ...pts]);
-    } else fit(focusGroup(pts));
+      fit([state.near, ...pts, ...out]);
+    } else fit(out.length ? out.slice(0, OUT_SHOW) : focusGroup(pts));
   });
 }
 
@@ -1372,7 +1391,7 @@ async function search(push = true, keepCond = false){
     const d = await api(`/api/find?q=${encodeURIComponent(q)}&limit=12${where}${cond}`);
     state.items = d.items || [];
     state.last = d;
-    state.showWeak = false;
+    state.showWeak = false; state.outAll = false;
     renderUnderstood(d);
     renderResults();
     if (push && !keepCond) toResultsTop();
@@ -1520,8 +1539,10 @@ function firstSentence(t){
 const quoteWords = ws => ws.map(w => `‘${esc(w)}’`).join(", ");
 // 줄임말을 넓혀 찾았거나, 데이터에 없는 말을 빼고 찾았을 때 결과 위에 한 줄
 function vocabNote(d){
-  const lines = Object.entries(d.expanded || {}).map(([w, to]) =>
-    `${quoteWords([w])}${josa(w, "은", "는")} ‘${esc(to.join("·"))}’까지 넓혀서 찾았어요.`);
+  const absent = new Set(d.absent || []), hasOut = (d.outside || []).length > 0;
+  const lines = Object.entries(d.expanded || {}).map(([w, to]) => absent.has(w) && hasOut
+    ? `${quoteWords([w])}${josa(w, "은", "는")} 반나절 데이터에 없어서 카카오맵에서 찾았어요.`
+    : `${quoteWords([w])}${josa(w, "은", "는")} ‘${esc(to.join("·"))}’까지 넓혀서 찾았어요.`);
   const unk = d.unknown || [];
   if (d.weak) lines.push(`정확히 맞는 곳은 아니고, 비슷해 보이는 곳이에요.`);
   else if (unk.length) lines.push(`${quoteWords(unk)}${josa(unk.at(-1), "이", "가")} 들어간 곳은 없어서 나머지 말로 찾았어요.`);
@@ -1529,13 +1550,25 @@ function vocabNote(d){
 }
 
 // 카카오에서 보충한 곳 (반나절 데이터 밖이라 코스는 못 짠다)
+const OUT_LABEL = "가나다라마바사아자차카타파하";
+const OUT_SHOW = 6;
 function outsideList(d){
   const o = d.outside || [];
   if (!o.length) return "";
-  return `<section class="outside"><h4>카카오맵에서 찾은 곳</h4>
-    <p class="sub">반나절 데이터에는 없는 곳이라 반나절 코스는 아직 못 짜요. 영업 정보는 카카오맵에서 확인하세요.</p>
-    <ul>${o.map(p => `<li><div><b>${esc(p.name)}</b><small>${esc([p.category, shortAddr(p.addr)].filter(Boolean).join(" · "))}</small></div>
-      ${p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener">카카오맵에서 보기 ↗</a>` : ""}</li>`).join("")}</ul></section>`;
+  const area = a => (a || "").split(" ").slice(1, 3).join(" ");          // '전북특별자치도 전주시 완산구 …' → '전주시 완산구'
+  const card = (p, i) => `<a class="oc" href="${esc(p.url || "#")}" target="_blank" rel="noopener"${i >= OUT_SHOW && !state.outAll ? " hidden" : ""}>
+      <span class="ol">${OUT_LABEL[i] || ""}</span>
+      <span class="ot"><b>${esc(p.name)}</b><small>${esc([p.category, area(p.addr)].filter(Boolean).join(" · "))}</small></span>
+      <span class="oa" aria-hidden="true">↗</span></a>`;
+  const rest = o.length - OUT_SHOW;
+  return `<section class="outside"><div class="oh"><h4>카카오맵에서 찾은 곳</h4>
+      <p class="sub">반나절 데이터 밖이라 코스는 못 짜요 · 누르면 카카오맵에서 영업 정보를 볼 수 있어요</p></div>
+    <div class="og">${o.map(card).join("")}</div>
+    ${rest > 0 && !state.outAll ? `<button type="button" class="more" id="outMore">${rest}곳 더 보기</button>` : ""}</section>`;
+}
+function bindOutside(){
+  const b = $("#outMore");
+  if (b) b.onclick = () => { state.outAll = true; document.querySelectorAll(".outside a.oc[hidden]").forEach(a => a.hidden = false); b.remove(); };
 }
 
 function renderResults(){
@@ -1548,7 +1581,8 @@ function renderResults(){
       한국관광공사 공공데이터에 없는 가게일 수 있어요. 조금 다르게 적어 보세요.<br><br>
       <button type="button" class="btn" id="showWeak">그래도 비슷해 보이는 곳 보기</button></div>${outsideList(d)}`;
     $("#showWeak").onclick = () => { state.showWeak = true; renderResults(); };
-    mapResults([]);
+    bindOutside();
+    mapResults([], d.outside);
     return;
   }
   if (!items.length){
@@ -1562,7 +1596,8 @@ function renderResults(){
   const hide = {indoor: same(true) ? true : same(false) ? false : undefined};
   // '가맥집' 처럼 그 말 그대로는 반나절 데이터에 없으면 카카오에서 찾은 진짜 가게가 먼저다
   const outsideFirst = (d.outside || []).length && (d.absent || []).length;
-  $("#pane").innerHTML = `${vocabNote(d)}${outsideFirst ? outsideList(d) + `<h4 class="similar-h">반나절 데이터에서 비슷한 곳</h4>` : ""}<div class="grid">${items.map((r, i) => `
+  $("#pane").innerHTML = `${vocabNote(d)}${outsideFirst ? outsideList(d) + `<h4 class="similar-h">반나절 데이터에서 비슷한 곳${
+        Object.keys(d.expanded || {}).length ? ` <small class="muted-s">· ${esc(Object.values(d.expanded).flat().join("·"))}(으)로 넓혀 찾음</small>` : ""}</h4>` : ""}<div class="grid">${items.map((r, i) => `
     <article class="card" data-card="${r.content_id}" data-detail="${r.content_id}">
       <div class="ph">${photo(r)}<span class="rank">${i + 1}</span>${heartBtn(r)}</div>
       <div class="body">
@@ -1590,7 +1625,8 @@ function renderResults(){
       document.querySelector(`[data-mk="${c.dataset.card}"]`)?.classList.remove("on");
     };
   });
-  mapResults(items);
+  bindOutside();
+  mapResults(items, outsideFirst ? d.outside : []);
 }
 
 // ── 상세 ─────────────────────────────────────────────────
