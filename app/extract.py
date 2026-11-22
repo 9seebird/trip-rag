@@ -80,6 +80,13 @@ AREA_RULES = [
     (r"(전남|전라남도|목포|여수|순천|나주|광양|담양|곡성|구례|고흥|보성|화순|장흥|강진|해남|영암|"
      r"무안|함평|영광군|(?<!만리)장성|완도|진도|신안)", 38, "전남"),
 ]
+# 방향 — "제주 동쪽", "강원 남부" 처럼 지역 안의 어느 쪽인지. 지역이 잡혔을 때만 쓴다.
+# 시군구 이름으로 나누면 지역마다 표를 만들어야 해서, 그 지역 장소들의 가운데(중앙값 경위도)를
+# 기준으로 반을 가른다 (search._where). '남편'·'동부산'·'남부터미널' 같은 낱말엔 걸리지 않게 꼬리를 좁힌다.
+SIDE_RULES = r"(?<![가-힣])(동|서|남|북)(?:쪽|부(?=$|\s|권|[,.!?]|에|의|로|지역|해안))"
+SIDE_CODE = {"동": "E", "서": "W", "남": "S", "북": "N"}
+SIDE_NAME = {"E": "동쪽", "W": "서쪽", "S": "남쪽", "N": "북쪽"}
+
 AREA_NAME = {1: "서울", 2: "인천", 3: "대전", 4: "대구", 5: "광주", 6: "부산", 7: "울산", 8: "세종",
              31: "경기", 32: "강원", 33: "충북", 34: "충남", 35: "경북", 36: "경남", 37: "전북",
              38: "전남", 39: "제주"}
@@ -112,7 +119,7 @@ WHEN_RULES = [
 def extract(q, strip=False, today=None):
     q = q or ""
     found = {"area": None, "indoor": None, "pet": False, "baby": False, "access": False, "types": None,
-             "when": None}
+             "when": None, "side": None}
     why = []
 
     for name, value, pat, label in RULES:
@@ -148,6 +155,13 @@ def extract(q, strip=False, today=None):
             found["area"] = area
             why.append({"field": "area", "value": area, "label": label, "matched": m.group(0)})
             break
+
+    if found["area"]:
+        m = re.search(SIDE_RULES, q)
+        if m:
+            found["side"] = SIDE_CODE[m.group(1)]
+            why.append({"field": "side", "value": found["side"],
+                        "label": f'{AREA_NAME[found["area"]]} {SIDE_NAME[found["side"]]}', "matched": m.group(0)})
 
     text = q
     if strip:

@@ -87,7 +87,7 @@ def find(
     lat: float | None = Query(None, ge=33, le=39, description="'내 근처' — 위도 (국내 범위)"),
     lon: float | None = Query(None, ge=124, le=132),
     radius: float = Query(10, ge=1, le=50, description="'내 근처' 반경 km"),
-    off: str | None = Query(None, max_length=60, description="질문에서 뽑았지만 끈 조건. 쉼표로 (area,indoor,pet,access,types,when)"),
+    off: str | None = Query(None, max_length=60, description="질문에서 뽑았지만 끈 조건. 쉼표로 (area,indoor,pet,access,types,when,side)"),
     indoor: bool | None = Query(None, description="조건 칩으로 직접 켠 실내(true)/야외(false)"),
     pet: bool | None = None,
     access: bool | None = None,
@@ -122,7 +122,7 @@ def find(
         return out
 
 
-OFFABLE = {"area", "indoor", "pet", "access", "types", "when", "baby"}
+OFFABLE = {"area", "indoor", "pet", "access", "types", "when", "baby", "side"}
 
 
 # ── 결과 피드백 ──────────────────────────────────────────────────────────────

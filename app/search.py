@@ -78,6 +78,14 @@ def _where(f):
         where.append("p.content_type = ANY(%(types)s)"); params["types"] = list(f["types"])
     if f.get("indoor") is not None:
         where.append("p.indoor IS DISTINCT FROM %(not_indoor)s"); params["not_indoor"] = not f["indoor"]
+    if f.get("side") in _SIDE_SQL and f.get("area"):
+        # "제주 동쪽" — 그 지역의 동서(남북) 폭 가운데를 기준으로 반을 가른다. 지역이 있을 때만.
+        # 중앙값으로 가르면 장소가 몰린 시내 쪽으로 기준이 쏠린다(제주시 용두암이 '동쪽'에 들어감).
+        # 양 끝 2%는 빼고 폭을 잰다 — 추자도·마라도 같은 먼 섬에 기준이 끌려가지 않게.
+        col, op = _SIDE_SQL[f["side"]]
+        where.append(f"p.{col} {op} (SELECT (percentile_cont(0.02) WITHIN GROUP (ORDER BY {col})"
+                     f" + percentile_cont(0.98) WITHIN GROUP (ORDER BY {col})) / 2"
+                     f" FROM places WHERE area_code = %(area)s AND {col} IS NOT NULL)")
     if f.get("pet"):
         # 반려동물 동반여행 목록(KorPetTourService2)에 있는 곳만. 목록을 아직 못 받은 지역이면 후보가 말라
         # filtered_candidates 가 이 조건부터 푼다(SOFT_FILTERS)
@@ -101,6 +109,8 @@ def _where(f):
     where.append("(p.content_type <> 15 OR p.event_end IS NULL OR p.event_end >= (now() AT TIME ZONE 'Asia/Seoul')::date)")
     return where, params
 
+
+_SIDE_SQL = {"E": ("lon", ">"), "W": ("lon", "<"), "N": ("lat", ">"), "S": ("lat", "<")}
 
 _KM_SQL = """6371 * 2 * asin(sqrt(
     power(sin(radians(p.lat - %(nlat)s) / 2), 2) +
@@ -248,7 +258,7 @@ def strip_private(items):
 
 
 HINT_ONLY = ("baby",)                 # 뽑기는 하되 SQL 로 거르지 않는 조건
-SOFT_FILTERS = ("access", "pet", "indoor", "types")   # 먼저 푸는 순서 (약한 조건부터)
+SOFT_FILTERS = ("access", "pet", "side", "indoor", "types")   # 먼저 푸는 순서 (약한 조건부터)
 MIN_CANDIDATES = 3
 
 
