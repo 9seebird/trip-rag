@@ -44,6 +44,8 @@ STOP = {
     # 부탁·물음 말투 ('가맥집 추천좀', '괜찮은데 있어?')
     "추천좀", "추천해", "추천해줘", "추천해주세요", "알려줘", "알려주세요", "찾아줘", "찾아주세요",
     "있어", "있나", "있나요", "있을까", "있을까요", "어디야", "어디있어", "괜찮은데", "좋은데", "가볼만한",
+    # '어디 가지', '뭐 먹지', '어디 갈까' — 고민하는 말투
+    "가지", "갈까", "갈래", "가볼까", "가자", "먹지", "먹을까", "먹을래", "뭐먹지", "할까", "놀까", "어딜", "어디로", "어디가",
 }
 
 
@@ -494,6 +496,8 @@ def find(conn, q, limit=12, pool=30, overrides=None, use_rerank=True, near=None,
         "weak": vc["weak"],              # 찾는 말이 전부 없는 말 → 화면이 결과를 접는다
         "absent": vc["absent"],          # 그 말 그대로는 데이터에 없는 낱말 (넓혀 찾았어도) → 화면이 카카오 결과를 위로
         # 바깥 검색(카카오)에 넘길 짧은 말: 질문 속 지역 + 찾는 낱말 ('전주 가맥집 분위기 좋은 곳' → '전주 가맥집')
-        "lookup": " ".join([w["matched"] for w in ex["why"] if w["field"] == "area" and not near] + ct),
+        # 데이터에 없던 말·넓혀 찾은 말만 보낸다 (질문의 다른 말까지 붙이면 카카오가 0건을 돌려준다: '전주 가맥집 가지')
+        "lookup": " ".join([w["matched"] for w in ex["why"] if w["field"] == "area" and not near]
+                           + (list(dict.fromkeys(vc["absent"] + vc["unknown"] + list(vc["expanded"]))) or ct)),
         "took_ms": int((time.time() - t0) * 1000),
     }
