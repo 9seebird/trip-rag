@@ -119,8 +119,10 @@ def find(
             raise
         # 우리 데이터에 없는 말이 섞였으면 카카오에서 보충한다 (키가 없으면 꺼짐, app/kakao.py)
         out["outside"] = []
-        if kakao.enabled() and (out["weak"] or out["unknown"] or out["expanded"]):
-            kq = out.get("lookup") or qn
+        missing = out["weak"] or out["unknown"] or out["expanded"]
+        if kakao.enabled() and (missing or out.get("thin")):
+            # 데이터에 없는 말이면 그 말로, 종류만 모자라면('광명 카페' 3곳) '광명 카페' 로 찾는다
+            kq = (out.get("lookup") if missing else out.get("thin_lookup")) or qn
             if area and not near and AREA_NAME.get(area) and AREA_NAME[area] not in kq:
                 kq = f"{AREA_NAME[area]} {kq}"
             out["outside"] = kakao.keyword(conn, kq, near=near)

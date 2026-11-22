@@ -1544,6 +1544,7 @@ function vocabNote(d){
     ? `${quoteWords([w])}${josa(w, "은", "는")} 반나절 데이터에 없어서 카카오맵에서 찾았어요.`
     : `${quoteWords([w])}${josa(w, "은", "는")} ‘${esc(to.join("·"))}’까지 넓혀서 찾았어요.`);
   const unk = d.unknown || [];
+  if (d.thin && hasOut && !absent.size) lines.push(`이 지역 ${esc(d.thin)}는 반나절 데이터에 적어서 카카오맵에서 더 찾았어요.`);
   if (d.weak) lines.push(`정확히 맞는 곳은 아니고, 비슷해 보이는 곳이에요.`);
   else if (unk.length) lines.push(`${quoteWords(unk)}${josa(unk.at(-1), "이", "가")} 들어간 곳은 없어서 나머지 말로 찾았어요.`);
   return lines.length ? `<div class="note" style="margin:0 0 12px">${lines.join("<br>")}</div>` : "";
@@ -1561,7 +1562,7 @@ function outsideList(d){
       <span class="ot"><b>${esc(p.name)}</b><small>${esc([p.category, area(p.addr)].filter(Boolean).join(" · "))}</small></span>
       <span class="oa" aria-hidden="true">↗</span></a>`;
   const rest = o.length - OUT_SHOW;
-  return `<section class="outside"><div class="oh"><h4>카카오맵에서 찾은 곳</h4>
+  return `<section class="outside"><div class="oh"><h4>카카오맵에서 찾은 ${d.thin && !(d.absent || []).length ? esc(d.thin) : "곳"}</h4>
       <p class="sub">반나절 데이터 밖이라 코스는 못 짜요 · 누르면 카카오맵에서 영업 정보를 볼 수 있어요</p></div>
     <div class="og">${o.map(card).join("")}</div>
     ${rest > 0 && !state.outAll ? `<button type="button" class="more" id="outMore">${rest}곳 더 보기</button>` : ""}</section>`;
@@ -1595,7 +1596,8 @@ function renderResults(){
   const same = v => items.length > 1 && items.every(x => x.indoor === v);
   const hide = {indoor: same(true) ? true : same(false) ? false : undefined};
   // '가맥집' 처럼 그 말 그대로는 반나절 데이터에 없으면 카카오에서 찾은 진짜 가게가 먼저다
-  const outsideFirst = (d.outside || []).length && (d.absent || []).length;
+  // 카카오는 반나절 데이터가 모자랄 때만 부르므로, 결과가 있으면 언제나 위에 둔다
+  const outsideFirst = (d.outside || []).length > 0;
   $("#pane").innerHTML = `${vocabNote(d)}${outsideFirst ? outsideList(d) + `<h4 class="similar-h">반나절 데이터에서 비슷한 곳${
         Object.keys(d.expanded || {}).length ? ` <small class="muted-s">· ${esc(Object.values(d.expanded).flat().join("·"))}(으)로 넓혀 찾음</small>` : ""}</h4>` : ""}<div class="grid">${items.map((r, i) => `
     <article class="card" data-card="${r.content_id}" data-detail="${r.content_id}">

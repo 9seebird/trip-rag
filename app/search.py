@@ -46,6 +46,8 @@ STOP = {
     "있어", "있나", "있나요", "있을까", "있을까요", "어디야", "어디있어", "괜찮은데", "좋은데", "가볼만한",
     # '어디 가지', '뭐 먹지', '어디 갈까' — 고민하는 말투
     "가지", "갈까", "갈래", "가볼까", "가자", "먹지", "먹을까", "먹을래", "뭐먹지", "할까", "놀까", "어딜", "어디로", "어디가",
+    # '맥주 한잔 하기' — '한잔' 이 '차 한잔' 카페를 끌어온다
+    "한잔", "한번", "하기", "해보기", "먹어보기",
 }
 
 
@@ -462,9 +464,13 @@ def find(conn, q, limit=12, pool=30, overrides=None, use_rerank=True, near=None,
     rare = [t for t in ct if t not in vc["unknown"] and 0 < doc_count(conn, stems(t)) < RARE_DF * n]
     cand = promote_rare(conn, cand, rare, filters, limit)
     # '카페' 를 물으면 음식점(39) 안에서 카페를 앞으로 (관광공사는 카페도 음식점으로 분류한다)
+    # 카페끼리는 질문의 낱말('강릉 바다 커피' 의 바다)이 들어간 곳을 앞으로 — 시내 체인점보다 바닷가 카페
     if CAFE_Q.search(q):
-        cand = sorted(cand, key=lambda it: not CAFE_T.search(
-            f"{it.get('title') or ''} {(it.get('_text') or it.get('snippet') or '')[:80]}"))
+        def cafe_key(it):
+            text = f"{it.get('title') or ''} {it.get('_text') or it.get('snippet') or ''}"
+            hits = sum(any(w in text for w in stems(t)) for t in ct if not CAFE_Q.search(t))
+            return (not CAFE_T.search(f"{it.get('title') or ''} {text[:80]}"), -hits)
+        cand = sorted(cand, key=cafe_key)
     # 반려동물·무장애 조건은 맞는 곳이 적으면 풀린다(SOFT_FILTERS). 풀렸더라도 맞는 곳은 앞으로 올린다
     boost = [f for f, col in (("pet", "pet_allowed"), ("access", "access_listed")) if f in dropped]
     if boost:
@@ -476,6 +482,11 @@ def find(conn, q, limit=12, pool=30, overrides=None, use_rerank=True, near=None,
             items = apply_rerank(conn, q, cand, limit, timeout=RERANK_TIMEOUT)
         except Exception:                 # 리랭커가 죽어도 벡터 순서로는 보여준다
             items = cand[:limit]
+    # 카페를 물었는데 이 지역 데이터에 카페가 적으면(광명 3곳) 카카오에서 더 찾게 표시한다 (main.find)
+    thin = None
+    if CAFE_Q.search(q) and sum(1 for it in items if CAFE_T.search(
+            f"{it.get('title') or ''} {(it.get('_text') or it.get('snippet') or '')[:80]}")) < 4:
+        thin = "카페"
     items = attach_crowd(conn, strip_private(items))
     if near:
         for it in items:
@@ -494,7 +505,9 @@ def find(conn, q, limit=12, pool=30, overrides=None, use_rerank=True, near=None,
         "expanded": vc["expanded"],      # {낱말: [넓힌 말]}
         "unknown": vc["unknown"],        # 데이터에 없는 낱말
         "weak": vc["weak"],              # 찾는 말이 전부 없는 말 → 화면이 결과를 접는다
-        "absent": vc["absent"],          # 그 말 그대로는 데이터에 없는 낱말 (넓혀 찾았어도) → 화면이 카카오 결과를 위로
+        "absent": vc["absent"],
+        "thin": thin,                    # 데이터에 적은 종류 ('카페') → 카카오에서 보충
+        "thin_lookup": " ".join([w["matched"] for w in ex["why"] if w["field"] == "area" and not near] + [thin]) if thin else None,          # 그 말 그대로는 데이터에 없는 낱말 (넓혀 찾았어도) → 화면이 카카오 결과를 위로
         # 바깥 검색(카카오)에 넘길 짧은 말: 질문 속 지역 + 찾는 낱말 ('전주 가맥집 분위기 좋은 곳' → '전주 가맥집')
         # 데이터에 없던 말·넓혀 찾은 말만 보낸다 (질문의 다른 말까지 붙이면 카카오가 0건을 돌려준다: '전주 가맥집 가지')
         "lookup": " ".join([w["matched"] for w in ex["why"] if w["field"] == "area" and not near]
