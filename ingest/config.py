@@ -30,6 +30,13 @@ EMBED_DIM    = int(os.getenv("EMBED_DIM") or "1024")
 RERANK_MODEL = os.getenv("RERANK_MODEL") or _DEFAULTS["rerank"]
 CHAT_MODEL   = os.getenv("CHAT_MODEL") or _DEFAULTS["chat"]
 
+# 생성(chat) 백업 — 주 제공처가 429·5xx 로 거절하면 OpenAI 호환 서버(예: 집 PC 의 Ollama)로 한 번 더.
+# 비워 두면 꺼짐. 임베딩은 차원이 달라 바꿀 수 없으므로 생성에만 쓴다.
+#   FALLBACK_CHAT_BASE=http://192.168.0.10:11434/v1   (Ollama 는 OLLAMA_HOST=0.0.0.0 으로 열어야 함)
+FALLBACK_CHAT_BASE    = (os.getenv("FALLBACK_CHAT_BASE") or "").rstrip("/")
+FALLBACK_CHAT_MODEL   = os.getenv("FALLBACK_CHAT_MODEL") or "gemma4:12b"
+FALLBACK_CHAT_TIMEOUT = float(os.getenv("FALLBACK_CHAT_TIMEOUT") or "30")
+
 DB = dict(
     host=os.getenv("DB_HOST", "localhost"),
     port=int(os.getenv("DB_PORT", "5433")) if os.getenv("DB_HOST", "localhost") != "db" else 5432,

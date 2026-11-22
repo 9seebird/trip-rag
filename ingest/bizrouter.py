@@ -16,7 +16,8 @@ import time
 import httpx
 
 from .config import (LLM_PROVIDER, BIZROUTER_API_KEY, BIZROUTER_BASE, GEMINI_API_KEY, GEMINI_BASE,
-                     EMBED_MODEL, EMBED_DIM, RERANK_MODEL, CHAT_MODEL)
+                     EMBED_MODEL, EMBED_DIM, RERANK_MODEL, CHAT_MODEL,
+                     FALLBACK_CHAT_BASE, FALLBACK_CHAT_MODEL, FALLBACK_CHAT_TIMEOUT)
 from .db import log_call
 
 
@@ -151,11 +152,55 @@ def rerank(conn, query, documents, top_n=5, model=None, timeout=None):
     return out[:top_n]
 
 
+def _fallback_worthy(err, post_kw):
+    """백업으로 넘길 실패인가. 서버가 바로 거절한 것(429·5xx·연결 실패)만.
+    호출한 쪽이 시간 상한을 준 경우(코스 12초 등)의 시간 초과는 넘기지 않는다 —
+    이미 기다린 만큼 또 기다리게 되고, 그쪽엔 규칙 대체가 따로 있다."""
+    msg = str(err)
+    if re.search(r"HTTP (429|5\d\d)", msg):
+        return True
+    if re.search(r"(?i)timeout|timed out", msg):
+        return not (post_kw or {}).get("timeout")
+    return "호출 실패" in msg                         # 연결 오류 등
+
+
+def _chat_fallback(conn, messages, op, timeout, **kw):
+    """OpenAI 호환 백업 서버로 한 번만. Ollama 는 reasoning_effort='none' 이어야 생각 단계를 건너뛴다
+    (llm-compare 실측: 안 끄면 첫 글자까지 57초)."""
+    kw = {k: v for k, v in kw.items() if k in ("temperature", "max_tokens", "response_format")}
+    payload = {"model": FALLBACK_CHAT_MODEL, "messages": messages, "reasoning_effort": "none", **kw}
+    t0 = time.time()
+    try:
+        r = httpx.post(f"{FALLBACK_CHAT_BASE}/chat/completions", json=payload,
+                       headers={"Authorization": "Bearer fallback"}, timeout=timeout)
+        ms = int((time.time() - t0) * 1000)
+        if r.status_code >= 400:
+            log_call(conn, "fallback", op, False, r.status_code, ms, note=r.text[:300])
+            raise RuntimeError(f"백업 HTTP {r.status_code}: {r.text[:200]}")
+        data = r.json()
+        log_call(conn, "fallback", op, True, r.status_code, ms,
+                 tokens=(data.get("usage") or {}).get("total_tokens"), note=FALLBACK_CHAT_MODEL)
+        return data["choices"][0]["message"]["content"]
+    except (httpx.TimeoutException, httpx.TransportError) as e:
+        log_call(conn, "fallback", op, False, None, int((time.time() - t0) * 1000), note=str(e)[:200])
+        raise RuntimeError(f"백업 호출 실패: {e}")
+
+
 def chat(conn, messages, model=None, op="chat", post_kw=None, **kw):
-    data = _openai(conn, "/chat/completions", {
-        "model": model or CHAT_MODEL, "messages": messages, **kw,
-    }, op, **(post_kw or {}))
-    return data["choices"][0]["message"]["content"]
+    try:
+        data = _openai(conn, "/chat/completions", {
+            "model": model or CHAT_MODEL, "messages": messages, **kw,
+        }, op, **(post_kw or {}))
+        return data["choices"][0]["message"]["content"]
+    except RuntimeError as e:
+        if not FALLBACK_CHAT_BASE or not _fallback_worthy(e, post_kw):
+            raise
+        print(f"  주 모델 실패 → 백업({FALLBACK_CHAT_MODEL}) 사용: {str(e)[:80]}", flush=True)
+        timeout = (post_kw or {}).get("timeout") or FALLBACK_CHAT_TIMEOUT
+        try:
+            return _chat_fallback(conn, messages, op, timeout, **kw)
+        except RuntimeError as e2:
+            raise RuntimeError(f"{e} / {e2}") from e
 
 
 def to_pgvector(v):
