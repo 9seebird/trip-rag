@@ -52,8 +52,10 @@ def slang_words(t):
 
 def content_tokens(toks, why):
     """조건으로 이미 쓰인 말(지역 '전주', '실내' 등)을 뺀 나머지 = 무엇을 찾는지 말하는 낱말."""
-    used = " ".join(w.get("matched") or "" for w in why)
-    return [t for t in toks if t not in used]
+    matched = [w.get("matched") or "" for w in why]
+    used = " ".join(matched)
+    # '광명시' 는 지역 조건 '광명' 으로 이미 쓰였다 (조건 낱말로 시작하는 꼴도 뺀다)
+    return [t for t in toks if t not in used and not any(m and t.startswith(m) for m in matched)]
 
 
 def judge(toks, has_any):
@@ -61,18 +63,21 @@ def judge(toks, has_any):
 
     돌려주는 것
       expanded : {낱말: [넓힌 말]}  — 검색어 뒤에 붙일 것
-      unknown  : [데이터에 없는 낱말]
-      weak     : 찾는 낱말이 있는데 전부 없는 말 → 결과를 믿을 수 없음
+      absent   : [그 말 그대로는 데이터에 없는 낱말] — 넓혀 찾았어도 진짜 그 가게는 없을 수 있다 ('가맥집')
+      unknown  : [넓힌 말까지 다 없는 낱말]
+      weak     : 찾는 낱말이 있는데 전부 unknown → 결과를 믿을 수 없음
     """
-    expanded, unknown = {}, []
+    expanded, absent, unknown = {}, [], []
     for t in toks:
         extra = slang_words(t)
         if extra:
             expanded[t] = extra
-        if not has_any(stems(t) + (extra or [])):
-            unknown.append(t)
+        if not has_any(stems(t)):
+            absent.append(t)
+            if not (extra and has_any(extra)):
+                unknown.append(t)
     weak = bool(toks) and len(unknown) == len(toks)
-    return {"expanded": expanded, "unknown": unknown, "weak": weak}
+    return {"expanded": expanded, "absent": absent, "unknown": unknown, "weak": weak}
 
 
 def search_text(q, expanded):

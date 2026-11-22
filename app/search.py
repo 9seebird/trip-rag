@@ -41,7 +41,15 @@ STOP = {
     # 무엇을 하러 가는지만 말하는 동사. 안 털면 '맥주 마시기' 의 '마시기' 가 "커피 마시기 좋은" 카페를 끌어온다
     "마시기", "마실", "마시는", "마시러", "먹기", "먹을", "먹으러", "즐기기", "즐길", "즐기러",
     "보기", "보면서", "보러", "가기", "가볼", "가보기", "놀기", "놀러", "쉬기", "쉬러",
+    # 부탁·물음 말투 ('가맥집 추천좀', '괜찮은데 있어?')
+    "추천좀", "추천해", "추천해줘", "추천해주세요", "알려줘", "알려주세요", "찾아줘", "찾아주세요",
+    "있어", "있나", "있나요", "있을까", "있을까요", "어디야", "어디있어", "괜찮은데", "좋은데", "가볼만한",
 }
+
+
+# 말하듯 쓴 부탁·물음 ('추천 해줄래', '알려줘', '골라 주세요', '있을까?') — 찾는 말이 아니다
+REQUEST = re.compile(r"(추천|알려|찾아|골라|소개|부탁)?(해|해줘|해줄래|해주라|해주세요|해줄|해줄수|해봐|줘|줄래|주라|주세요|"
+                     r"줄수|좀|부탁해|부탁해요|부탁드려요|드려요|있어|있나|있나요|있을까|있을까요|없나|없을까|어때|어떨까)")
 
 
 def tokens(q):
@@ -50,7 +58,7 @@ def tokens(q):
         t = re.sub(r"[^0-9A-Za-z가-힣]", "", raw)
         if not t:
             continue
-        if t in STOP:
+        if t in STOP or REQUEST.fullmatch(t):
             continue
         for j in JOSA:                       # 조사 떼기 (떼고도 2글자 이상일 때만)
             if t.endswith(j) and len(t) - len(j) >= 2:
@@ -78,6 +86,10 @@ def _where(f):
     where, params = [], {}
     if f.get("area"):
         where.append("p.area_code = %(area)s"); params["area"] = f["area"]
+    if f.get("city") and f.get("area"):
+        # '광명' → 주소 낱말이 '광명' 으로 시작하는 곳 (도 조건과 같이 걸어 다른 도의 같은 이름은 안 걸린다)
+        where.append("(p.addr LIKE %(city0)s OR p.addr LIKE %(city1)s)")
+        params.update(city0=f["city"] + "%", city1="% " + f["city"] + "%")
     if f.get("types"):
         where.append("p.content_type = ANY(%(types)s)"); params["types"] = list(f["types"])
     if f.get("indoor") is not None:
@@ -262,7 +274,7 @@ def strip_private(items):
 
 
 HINT_ONLY = ("baby",)                 # 뽑기는 하되 SQL 로 거르지 않는 조건
-SOFT_FILTERS = ("access", "pet", "side", "indoor", "types")   # 먼저 푸는 순서 (약한 조건부터)
+SOFT_FILTERS = ("access", "pet", "side", "indoor", "types", "city")   # 먼저 푸는 순서 (약한 조건부터). 시군은 맨 나중에 도로 넓힌다
 MIN_CANDIDATES = 3
 
 
@@ -376,6 +388,8 @@ def has_any(conn, words):
 # 의미 검색은 '마시기 좋은 곳' 같은 분위기에 끌려 이런 낱말을 놓칠 때가 있다 ('맥주 마시기 좋은 곳' → 카페만).
 # 그럴 때만, 그 낱말이 들어간 곳을 결과의 절반까지 2·4·6… 번째 자리에 끼워 넣는다.
 RARE_DF = 0.02
+CAFE_Q = re.compile(r"카페|커피|디저트|브런치|베이커리|빵집")
+CAFE_T = re.compile(r"카페|커피|디저트|브런치|베이커리|빵|cafe|coffee", re.I)
 _N = {"t": 0, "n": 0}
 
 
@@ -432,6 +446,7 @@ def find(conn, q, limit=12, pool=30, overrides=None, use_rerank=True, near=None,
     if near:
         filters["near"] = near
         filters.pop("area", None)
+        filters.pop("city", None)
     t0 = time.time()
     # 줄임말은 넓혀서 찾고('가맥집' → 맥주·호프…), 데이터 어디에도 없는 말은 알아챈다 (app/vocab.py)
     ct = content_tokens(tokens(q), ex["why"])
@@ -444,6 +459,10 @@ def find(conn, q, limit=12, pool=30, overrides=None, use_rerank=True, near=None,
     n = total_places(conn)
     rare = [t for t in ct if t not in vc["unknown"] and 0 < doc_count(conn, stems(t)) < RARE_DF * n]
     cand = promote_rare(conn, cand, rare, filters, limit)
+    # '카페' 를 물으면 음식점(39) 안에서 카페를 앞으로 (관광공사는 카페도 음식점으로 분류한다)
+    if CAFE_Q.search(q):
+        cand = sorted(cand, key=lambda it: not CAFE_T.search(
+            f"{it.get('title') or ''} {(it.get('_text') or it.get('snippet') or '')[:80]}"))
     # 반려동물·무장애 조건은 맞는 곳이 적으면 풀린다(SOFT_FILTERS). 풀렸더라도 맞는 곳은 앞으로 올린다
     boost = [f for f, col in (("pet", "pet_allowed"), ("access", "access_listed")) if f in dropped]
     if boost:
@@ -473,6 +492,7 @@ def find(conn, q, limit=12, pool=30, overrides=None, use_rerank=True, near=None,
         "expanded": vc["expanded"],      # {낱말: [넓힌 말]}
         "unknown": vc["unknown"],        # 데이터에 없는 낱말
         "weak": vc["weak"],              # 찾는 말이 전부 없는 말 → 화면이 결과를 접는다
+        "absent": vc["absent"],          # 그 말 그대로는 데이터에 없는 낱말 (넓혀 찾았어도) → 화면이 카카오 결과를 위로
         # 바깥 검색(카카오)에 넘길 짧은 말: 질문 속 지역 + 찾는 낱말 ('전주 가맥집 분위기 좋은 곳' → '전주 가맥집')
         "lookup": " ".join([w["matched"] for w in ex["why"] if w["field"] == "area" and not near] + ct),
         "took_ms": int((time.time() - t0) * 1000),

@@ -80,6 +80,24 @@ AREA_RULES = [
     (r"(전남|전라남도|목포|여수|순천|나주|광양|담양|곡성|구례|고흥|보성|화순|장흥|강진|해남|영암|"
      r"무안|함평|영광군|(?<!만리)장성|완도|진도|신안)", 38, "전남"),
 ]
+# 위 지명 중 시·군·구 이름인 것. 이게 잡히면 도(광명 → 경기) 안에서 그 시군까지 좁힌다 (search._where 의 city).
+# 해운대·서면·성산 같은 동네·명소 이름은 주소에 그대로 안 나오거나 다른 동네와 겹쳐 넣지 않는다.
+# 주소 낱말이 이 이름으로 시작하는 곳만 남긴다 ('광명' → '경기도 광명시 …', '분당' → '성남시 분당구 …').
+CITY = set("""서귀포 애월 강릉 속초 춘천 양양 평창 원주 동해시 삼척 정선 홍천 인제 철원 태백 영월
+수원 가평 양평 파주 용인 남양주 포천 고양시 일산 성남 분당 화성시 안산시 평택 이천 여주 의정부 동두천 연천 김포
+광명 시흥 부천 안양 하남 오산시 안성 양주시 구리시 과천 군포 의왕 강화군 강남 종로 해운대 기장 유성구
+청주 충주 제천 단양 보은 옥천 영동군 증평 진천 괴산 음성군 천안 공주시 보령 아산 서산 논산 계룡 당진 금산 서천 청양
+홍성 예산군 태안 경주 포항 안동 구미 영주 영천 상주시 문경 경산 의성 청송 영양군 영덕 청도 고령군 성주군 칠곡 예천
+봉화 울진 울릉 창원 마산 진해 진주 통영 사천시 김해 밀양 거제 양산시 의령 함안 창녕 남해군 하동 산청 함양 거창군 합천
+전주 군산 익산 정읍 남원 김제 완주군 진안 무주 장수군 임실 순창 고창 부안 목포 여수 순천 나주 광양 담양 곡성 구례
+고흥 보성 화순 장흥 강진 해남 영암 무안 함평 영광군 장성 완도 진도 신안""".split())
+
+
+def city_base(name):
+    """'고양시' → '고양', '영동군' → '영동'. 주소에서 찾을 이름."""
+    return name[:-1] if name[-1:] in ("시", "군") and len(name) > 2 else name
+
+
 # 방향 — "제주 동쪽", "강원 남부" 처럼 지역 안의 어느 쪽인지. 지역이 잡혔을 때만 쓴다.
 # 시군구 이름으로 나누면 지역마다 표를 만들어야 해서, 그 지역 장소들의 가운데(중앙값 경위도)를
 # 기준으로 반을 가른다 (search._where). '남편'·'동부산'·'남부터미널' 같은 낱말엔 걸리지 않게 꼬리를 좁힌다.
@@ -119,7 +137,7 @@ WHEN_RULES = [
 def extract(q, strip=False, today=None):
     q = q or ""
     found = {"area": None, "indoor": None, "pet": False, "baby": False, "access": False, "types": None,
-             "when": None, "side": None}
+             "when": None, "side": None, "city": None}
     why = []
 
     for name, value, pat, label in RULES:
@@ -154,6 +172,9 @@ def extract(q, strip=False, today=None):
         if m:
             found["area"] = area
             why.append({"field": "area", "value": area, "label": label, "matched": m.group(0)})
+            if m.group(0) in CITY:
+                found["city"] = city_base(m.group(0))
+                why.append({"field": "city", "value": found["city"], "label": found["city"], "matched": m.group(0)})
             break
 
     if found["area"]:
