@@ -18,6 +18,7 @@ from ingest.bizrouter import embed, rerank, to_pgvector
 from ingest.config import EMBED_MODEL
 
 from .extract import extract
+from .vocab import content_tokens, judge, search_text
 from .hours import parse as parse_hours
 
 # 서비스 화면에서 리랭크를 기다리는 최대 시간(초). 넘으면 벡터 순서로 보여준다.
@@ -359,6 +360,15 @@ def run(conn, q, limit=8, compare="keyword", use_filters=True, pool=30, override
     return out
 
 
+def has_any(conn, words):
+    """그 말들 중 하나라도 전국 어느 장소의 이름·소개글에 나오나 (vocab.judge 가 쓴다)."""
+    pats = ["%" + w + "%" for w in words]
+    r = conn.execute("""SELECT EXISTS (SELECT 1 FROM places
+                          WHERE title ILIKE ANY(%(p)s) OR coalesce(overview,'') ILIKE ANY(%(p)s)) AS ok""",
+                     {"p": pats}).fetchone()
+    return bool(r["ok"])
+
+
 def find(conn, q, limit=12, pool=30, overrides=None, use_rerank=True, near=None, hybrid=True, off=()):
     """서비스 화면용: 조건 필터 + 벡터 + 리랭커 한 줄. 비교용 대조군(키워드)은 돌리지 않는다.
 
@@ -376,10 +386,13 @@ def find(conn, q, limit=12, pool=30, overrides=None, use_rerank=True, near=None,
         filters["near"] = near
         filters.pop("area", None)
     t0 = time.time()
+    # 줄임말은 넓혀서 찾고('가맥집' → 맥주·호프…), 데이터 어디에도 없는 말은 알아챈다 (app/vocab.py)
+    vc = judge(content_tokens(tokens(q), ex["why"]), lambda ws: has_any(conn, ws))
+    qs = search_text(q, vc["expanded"])
     if hybrid:
-        cand, filters, dropped = hybrid_candidates(conn, q, pool, filters)
+        cand, filters, dropped = hybrid_candidates(conn, qs, pool, filters)
     else:
-        cand, filters, dropped = filtered_candidates(conn, q, pool, filters)
+        cand, filters, dropped = filtered_candidates(conn, qs, pool, filters)
     # 반려동물·무장애 조건은 맞는 곳이 적으면 풀린다(SOFT_FILTERS). 풀렸더라도 맞는 곳은 앞으로 올린다
     boost = [f for f, col in (("pet", "pet_allowed"), ("access", "access_listed")) if f in dropped]
     if boost:
@@ -406,5 +419,8 @@ def find(conn, q, limit=12, pool=30, overrides=None, use_rerank=True, near=None,
         "dropped_filters": dropped,
         "off": sorted(off),
         "items": items,
+        "expanded": vc["expanded"],      # {낱말: [넓힌 말]}
+        "unknown": vc["unknown"],        # 데이터에 없는 낱말
+        "weak": vc["weak"],              # 찾는 말이 전부 없는 말 → 화면이 결과를 접는다
         "took_ms": int((time.time() - t0) * 1000),
     }

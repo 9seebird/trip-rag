@@ -98,14 +98,14 @@ def find(
     offs = sorted({f for f in (off or "").split(",") if f in OFFABLE})
     adds = {k: v for k, v in (("indoor", indoor), ("pet", pet or None), ("access", access or None)) if v is not None}
     # 위치는 약 100m 단위로 묶어 캐시를 같이 쓴다. 날짜를 넣는 건 '이번 주말 축제' 같은 질문 때문
-    key = cache.make_key("find", q=qn, area=area, limit=limit, day=time.strftime("%Y%m%d"),
+    key = cache.make_key("find", v=2, q=qn, area=area, limit=limit, day=time.strftime("%Y%m%d"),   # v: 응답 모양이 바뀌면 올린다 (2 = 줄임말·없는 말)
                          near=[round(lat, 3), round(lon, 3), radius] if near else None,
                          off=offs or None, add=adds or None)
     t0 = time.time()
     with connect() as conn:
         hit = cache.get(conn, "find", key)
         if hit:
-            cache.log(conn, "find", qn, area, bool(near), len(hit.get("items", [])),
+            cache.log(conn, "find", qn, area, bool(near), 0 if hit.get("weak") else len(hit.get("items", [])),
                       int((time.time() - t0) * 1000), cached=True)
             return hit | {"cached": True}
         try:
@@ -118,7 +118,8 @@ def find(
                       ok=False, note=str(e))
             raise
         cache.put(conn, "find", key, out)
-        cache.log(conn, "find", qn, area, bool(near), len(out["items"]), int((time.time() - t0) * 1000))
+        cache.log(conn, "find", qn, area, bool(near), 0 if out["weak"] else len(out["items"]),
+                  int((time.time() - t0) * 1000))
         return out
 
 

@@ -1353,10 +1353,11 @@ async function search(push = true, keepCond = false){
     const d = await api(`/api/find?q=${encodeURIComponent(q)}&limit=12${where}${cond}`);
     state.items = d.items || [];
     state.last = d;
+    state.showWeak = false;
     renderUnderstood(d);
     renderResults();
     if (push && !keepCond) toResultsTop();
-    loadWeather(state.near || state.items.find(i => i.lat != null), "list");
+    loadWeather(state.near || (d.weak ? null : state.items.find(i => i.lat != null)), "list");
   }catch(e){
     $("#pane").innerHTML = `<div class="empty">${esc(e.message)}</div>`;
   }finally{
@@ -1449,15 +1450,42 @@ function photo(r){
   return ph + (r.image ? `<img src="${esc(https(r.image))}" alt="" loading="lazy" onerror="this.remove()">` : "");
 }
 
+// 받침이 있으면 a(이·은), 없으면 b(가·는)
+function josa(w, a, b){
+  const c = (w || "").charCodeAt(w.length - 1);
+  return c >= 0xAC00 && c <= 0xD7A3 ? ((c - 0xAC00) % 28 ? a : b) : `${a}(${b})`;
+}
+const quoteWords = ws => ws.map(w => `‘${esc(w)}’`).join(", ");
+// 줄임말을 넓혀 찾았거나, 데이터에 없는 말을 빼고 찾았을 때 결과 위에 한 줄
+function vocabNote(d){
+  const lines = Object.entries(d.expanded || {}).map(([w, to]) =>
+    `${quoteWords([w])}${josa(w, "은", "는")} ‘${esc(to.join("·"))}’까지 넓혀서 찾았어요.`);
+  const unk = d.unknown || [];
+  if (d.weak) lines.push(`정확히 맞는 곳은 아니고, 비슷해 보이는 곳이에요.`);
+  else if (unk.length) lines.push(`${quoteWords(unk)}${josa(unk.at(-1), "이", "가")} 들어간 곳은 없어서 나머지 말로 찾았어요.`);
+  return lines.length ? `<div class="note" style="margin:0 0 12px">${lines.join("<br>")}</div>` : "";
+}
+
 function renderResults(){
   const items = state.items;
+  const d = state.last || {};
+  // 찾는 말이 전부 데이터에 없으면('전일갑오', '요아정') 억지로 고른 결과를 바로 보여주지 않는다
+  if (d.weak && items.length && !state.showWeak){
+    const ws = d.unknown || [];
+    $("#pane").innerHTML = `<div class="empty">${quoteWords(ws)}${josa(ws.at(-1), "이", "가")} 들어간 곳은 아직 반나절 데이터에 없어요.<br>
+      한국관광공사 공공데이터에 없는 가게일 수 있어요. 조금 다르게 적어 보세요.<br><br>
+      <button type="button" class="btn" id="showWeak">그래도 비슷해 보이는 곳 보기</button></div>`;
+    $("#showWeak").onclick = () => { state.showWeak = true; renderResults(); };
+    mapResults([]);
+    return;
+  }
   if (!items.length){
     $("#pane").innerHTML = state.near
       ? `<div class="empty">내 근처 ${state.near.r}km 안에서 딱 맞는 곳을 못 찾았어요.<br>‘내 근처’를 끄거나 조금 다르게 적어 보세요.</div>`
       : `<div class="empty">딱 맞는 곳을 못 찾았어요.<br>지역을 ‘전체’로 바꾸거나 조금 다르게 적어 보세요.</div>`;
     return;
   }
-  $("#pane").innerHTML = `<div class="grid">${items.map((r, i) => `
+  $("#pane").innerHTML = `${vocabNote(d)}<div class="grid">${items.map((r, i) => `
     <article class="card" data-card="${r.content_id}">
       <div class="ph">${photo(r)}<span class="rank">${i + 1}</span>${heartBtn(r)}</div>
       <div class="body">
