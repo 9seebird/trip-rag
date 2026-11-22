@@ -387,7 +387,8 @@ def find(conn, q, limit=12, pool=30, overrides=None, use_rerank=True, near=None,
         filters.pop("area", None)
     t0 = time.time()
     # 줄임말은 넓혀서 찾고('가맥집' → 맥주·호프…), 데이터 어디에도 없는 말은 알아챈다 (app/vocab.py)
-    vc = judge(content_tokens(tokens(q), ex["why"]), lambda ws: has_any(conn, ws))
+    ct = content_tokens(tokens(q), ex["why"])
+    vc = judge(ct, lambda ws: has_any(conn, ws))
     qs = search_text(q, vc["expanded"])
     if hybrid:
         cand, filters, dropped = hybrid_candidates(conn, qs, pool, filters)
@@ -422,5 +423,7 @@ def find(conn, q, limit=12, pool=30, overrides=None, use_rerank=True, near=None,
         "expanded": vc["expanded"],      # {낱말: [넓힌 말]}
         "unknown": vc["unknown"],        # 데이터에 없는 낱말
         "weak": vc["weak"],              # 찾는 말이 전부 없는 말 → 화면이 결과를 접는다
+        # 바깥 검색(카카오)에 넘길 짧은 말: 질문 속 지역 + 찾는 낱말 ('전주 가맥집 분위기 좋은 곳' → '전주 가맥집')
+        "lookup": " ".join([w["matched"] for w in ex["why"] if w["field"] == "area" and not near] + ct),
         "took_ms": int((time.time() - t0) * 1000),
     }

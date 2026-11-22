@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from ingest.config import EMBED_MODEL
 from ingest.db import connect
 from ingest.migrate import apply as apply_migrations
-from . import cache, limits, pages, weather
+from . import cache, kakao, limits, pages, weather
 from .course import build as build_course
 from .extract import AREA_NAME
 from .search import _row, attach_crowd, crowd_level, find as run_find, run as run_search
@@ -117,6 +117,13 @@ def find(
             cache.log(conn, "find", qn, area, bool(near), None, int((time.time() - t0) * 1000),
                       ok=False, note=str(e))
             raise
+        # 우리 데이터에 없는 말이 섞였으면 카카오에서 보충한다 (키가 없으면 꺼짐, app/kakao.py)
+        out["outside"] = []
+        if kakao.enabled() and (out["weak"] or out["unknown"] or out["expanded"]):
+            kq = out.get("lookup") or qn
+            if area and not near and AREA_NAME.get(area) and AREA_NAME[area] not in kq:
+                kq = f"{AREA_NAME[area]} {kq}"
+            out["outside"] = kakao.keyword(conn, kq, near=near)
         cache.put(conn, "find", key, out)
         cache.log(conn, "find", qn, area, bool(near), 0 if out["weak"] else len(out["items"]),
                   int((time.time() - t0) * 1000))

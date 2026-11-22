@@ -269,6 +269,12 @@ body.in-course .main{padding-top:6px}
 .stay{font-size:12px;color:var(--muted);margin:0 0 14px}
 .links{display:flex;gap:10px;margin-top:5px;font-size:12.5px}
 .links a{color:var(--accent);text-decoration:none;font-weight:600}
+.outside{margin:18px 0 4px;padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);text-align:left}
+.outside h4{margin:0 0 2px;font-size:15px}.outside .sub{font-size:12.5px;color:var(--muted);margin:0 0 10px}
+.outside ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.outside li{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.outside li b{font-size:14.5px}.outside li small{display:block;color:var(--muted);font-size:12.5px}
+.outside a{white-space:nowrap;font-size:13px}
 .note{font-size:12.5px;color:var(--muted);margin-top:10px;padding:10px 12px;background:var(--surface-2);border-radius:10px}
 
 /* ── 상세 시트 ─────────────────────────── */
@@ -1466,6 +1472,16 @@ function vocabNote(d){
   return lines.length ? `<div class="note" style="margin:0 0 12px">${lines.join("<br>")}</div>` : "";
 }
 
+// 카카오에서 보충한 곳 (반나절 데이터 밖이라 코스는 못 짠다)
+function outsideList(d){
+  const o = d.outside || [];
+  if (!o.length) return "";
+  return `<section class="outside"><h4>카카오맵에서 찾은 곳</h4>
+    <p class="sub">반나절 데이터에는 없는 곳이라 반나절 코스는 아직 못 짜요. 영업 정보는 카카오맵에서 확인하세요.</p>
+    <ul>${o.map(p => `<li><div><b>${esc(p.name)}</b><small>${esc([p.category, shortAddr(p.addr)].filter(Boolean).join(" · "))}</small></div>
+      ${p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener">카카오맵에서 보기 ↗</a>` : ""}</li>`).join("")}</ul></section>`;
+}
+
 function renderResults(){
   const items = state.items;
   const d = state.last || {};
@@ -1474,7 +1490,7 @@ function renderResults(){
     const ws = d.unknown || [];
     $("#pane").innerHTML = `<div class="empty">${quoteWords(ws)}${josa(ws.at(-1), "이", "가")} 들어간 곳은 아직 반나절 데이터에 없어요.<br>
       한국관광공사 공공데이터에 없는 가게일 수 있어요. 조금 다르게 적어 보세요.<br><br>
-      <button type="button" class="btn" id="showWeak">그래도 비슷해 보이는 곳 보기</button></div>`;
+      <button type="button" class="btn" id="showWeak">그래도 비슷해 보이는 곳 보기</button></div>${outsideList(d)}`;
     $("#showWeak").onclick = () => { state.showWeak = true; renderResults(); };
     mapResults([]);
     return;
@@ -1498,7 +1514,7 @@ function renderResults(){
           <button class="btn primary" data-course="${r.content_id}">여기서 반나절 코스</button>
         </div>
       </div>
-    </article>`).join("")}</div>
+    </article>`).join("")}</div>${outsideList(d)}
     <div class="fb" id="fbSearch">찾던 결과였나요?
       <button type="button" data-fbs="1" aria-pressed="${fbState(state.last?.query, null) === 1}">👍 네</button>
       <button type="button" data-fbs="-1" aria-pressed="${fbState(state.last?.query, null) === -1}">👎 아니요</button></div>`;
