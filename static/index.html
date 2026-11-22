@@ -24,7 +24,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <style>
 :root{
-  --bg:#f6f5f1; --surface:#ffffff; --surface-2:#f0efe9; --ink:#1b1c1a; --ink-2:#4a4b47; --muted:#7a7a73;
+  --bg:#f6f5f1; --surface:#ffffff; --surface-2:#f0efe9; --ink:#1b1c1a; --ink-2:#45463f; --muted:#66665f;
   --line:#e4e2da; --accent:#0f766e; --accent-ink:#ffffff; --accent-soft:#e3f1ee; --accent-line:#bfe0d9;
   --warm:#ea580c; --warm-soft:#fdeee3; --blue:#2563eb; --blue-soft:#e6eefc; --olive:#4d7c0f; --olive-soft:#eef5e1;
   --shadow:0 1px 2px rgba(20,20,10,.05),0 6px 20px rgba(20,20,10,.06);
@@ -185,7 +185,7 @@ body.has-result .chips{display:none}
   color:#fff;font-size:12.5px;font-weight:700;display:grid;place-items:center}
 .body{padding:13px 14px 14px;display:flex;flex-direction:column;gap:6px;flex:1}
 .tags{display:flex;flex-wrap:wrap;gap:5px}
-.tag{font-size:11.5px;padding:2px 8px;border-radius:6px;background:var(--surface-2);color:var(--ink-2);font-weight:600}
+.tag{font-size:12px;padding:2px 8px;border-radius:6px;background:var(--surface-2);color:var(--ink-2);font-weight:600}
 .tag.in{background:var(--blue-soft);color:var(--blue)}
 .tag.out{background:var(--olive-soft);color:var(--olive)}
 .tag.warn{background:var(--warm-soft);color:var(--warm)}
@@ -193,9 +193,11 @@ body.has-result .chips{display:none}
 .tag.dist{background:var(--accent-soft);color:var(--accent)}
 .tag.pet{background:var(--olive-soft);color:var(--olive)}
 .facts-h{margin:14px 0 -6px;font-size:13px;font-weight:700;color:var(--ink-2)}
-.card h3{margin:0;font-size:16px;line-height:1.35;letter-spacing:-.02em}
-.card .addr{font-size:12.5px;color:var(--muted)}
-.card .snip{font-size:13.5px;color:var(--ink-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin:0}
+.card{cursor:pointer}
+.card h3{margin:0;font-size:16.5px;line-height:1.35;letter-spacing:-.02em}
+.card h3 button{all:unset;cursor:pointer;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.card h3 button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.card .addr{font-size:13px;color:var(--muted)}
+.card .snip{font-size:14px;line-height:1.55;color:var(--ink-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin:0}
 .actions{display:flex;gap:6px;margin-top:auto;padding-top:6px}
 .dx .actions{flex-wrap:wrap}
 .dx .actions .btn.primary{flex:1 0 100%;order:-1;padding:11px 14px}
@@ -205,6 +207,8 @@ body.has-result .chips{display:none}
 @media (max-width:600px){.brand small{display:none}.grid .ph{aspect-ratio:2/1}.search button{padding:12px 18px}}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);flex:1}
 .btn.primary:hover{filter:brightness(1.06)}
+.btn.course{flex:1;background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent)}
+.btn.course:hover{border-color:var(--accent)}
 
 .empty{padding:40px 20px;text-align:center;color:var(--muted);background:var(--surface);border:1px dashed var(--line);border-radius:var(--radius)}
 .sk{background:linear-gradient(90deg,var(--surface-2),var(--surface),var(--surface-2));background-size:200% 100%;animation:sh 1.2s infinite;border-radius:8px}
@@ -274,7 +278,8 @@ body.in-course .main{padding-top:6px}
 .outside ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .outside li{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
 .outside li b{font-size:14.5px}.outside li small{display:block;color:var(--muted);font-size:12.5px}
-.outside a{white-space:nowrap;font-size:13px}
+.outside a{white-space:nowrap;font-size:13px;font-weight:600;color:var(--accent);text-decoration:none}
+.outside a:hover{text-decoration:underline}
 .note{font-size:12.5px;color:var(--muted);margin-top:10px;padding:10px 12px;background:var(--surface-2);border-radius:10px}
 
 /* ── 상세 시트 ─────────────────────────── */
@@ -296,6 +301,7 @@ dialog::backdrop{background:rgba(10,12,10,.45)}
 .adfit .kakao_ad_area{margin:0 auto}
 /* PC 광고(728px)는 칸이 728px 이상일 때만. 그보다 좁으면(태블릿 세로·좁힌 창) 모바일 광고(320px)를 가운데에 */
 @media (max-width:799px){.adfit{min-height:100px}}
+body.has-result .adfit-mid{margin:2px auto 10px}
 .adrail{position:fixed;top:50%;transform:translateY(-50%);right:max(12px,calc((100vw - 1440px)/4 - 80px));width:160px;height:600px;z-index:5}
 @media (max-width:1807px),(max-height:679px){.adrail{display:none}}
 .adfit-mid{margin:20px auto 8px}
@@ -1417,12 +1423,13 @@ $("#understood").addEventListener("click", e => {
 });
 
 const md = d => { const [, m, dd] = String(d).split("-"); return `${+m}.${+dd}`; };
-function badges(r){
-  const b = [`<span class="tag">${esc(r.type)}</span>`];
+// hide: 결과 전체가 같은 값이라 카드마다 붙이면 정보가 없는 표시 ({indoor: true} 등)
+function badges(r, hide = {}){
+  const b = [`<span class="tag">${esc(kindOf(r) === "cafe" ? "카페" : r.type)}</span>`];
   if (r.dist_km != null) b.push(`<span class="tag dist">${r.dist_km < 1 ? Math.round(r.dist_km * 1000) + "m" : r.dist_km + "km"}</span>`);
   if (r.event_start) b.push(`<span class="tag fest">${md(r.event_start)}${r.event_end && r.event_end !== r.event_start ? "~" + md(r.event_end) : ""}</span>`);
-  if (r.indoor === true) b.push(`<span class="tag in">실내</span>`);
-  if (r.indoor === false) b.push(`<span class="tag out">야외</span>`);
+  if (r.indoor === true && hide.indoor !== true) b.push(`<span class="tag in">실내</span>`);
+  if (r.indoor === false && hide.indoor !== false) b.push(`<span class="tag out">야외</span>`);
   if (r.pet_allowed === true) b.push(`<span class="tag pet">반려동물 동반</span>`);
   if (r.wheelchair_ok) b.push(`<span class="tag in">휠체어</span>`);
   if (r.stroller_ok || r.baby_ok === true) b.push(`<span class="tag in">유모차</span>`);
@@ -1447,7 +1454,8 @@ const KIND_LABEL = {sight: "볼거리", culture: "문화시설", fest: "축제·
 const TYPE_BY_NAME = {"관광지": 12, "문화시설": 14, "축제공연행사": 15, "레포츠": 28, "음식점": 39};
 function kindOf(r){
   const t = r.content_type ?? TYPE_BY_NAME[r.type];
-  if (t === 39) return (r.slot === "cafe" || /카페|커피|cafe|coffee|베이커리|디저트/i.test(r.title || "")) ? "cafe" : "food";
+  if (t === 39) return (r.slot === "cafe" || /카페|커피|cafe|coffee|베이커리|디저트/i.test(r.title || "")
+    || /카페|커피|베이커리|디저트/.test((r.snippet || r.overview || "").slice(0, 60))) ? "cafe" : "food";
   return {14: "culture", 15: "fest", 28: "leports"}[t] || "sight";
 }
 function photo(r){
@@ -1460,6 +1468,10 @@ function photo(r){
 function josa(w, a, b){
   const c = (w || "").charCodeAt(w.length - 1);
   return c >= 0xAC00 && c <= 0xD7A3 ? ((c - 0xAC00) % 28 ? a : b) : `${a}(${b})`;
+}
+function firstSentence(t){
+  const m = (t || "").match(/^[\s\S]{15,110}?[다요]\.(?=\s|$)/);
+  return m ? m[0] : (t || "");
 }
 const quoteWords = ws => ws.map(w => `‘${esc(w)}’`).join(", ");
 // 줄임말을 넓혀 찾았거나, 데이터에 없는 말을 빼고 찾았을 때 결과 위에 한 줄
@@ -1501,17 +1513,19 @@ function renderResults(){
       : `<div class="empty">딱 맞는 곳을 못 찾았어요.<br>지역을 ‘전체’로 바꾸거나 조금 다르게 적어 보세요.</div>`;
     return;
   }
+  // 12곳이 모두 실내(또는 모두 야외)면 카드마다 붙이지 않는다
+  const same = v => items.length > 1 && items.every(x => x.indoor === v);
+  const hide = {indoor: same(true) ? true : same(false) ? false : undefined};
   $("#pane").innerHTML = `${vocabNote(d)}<div class="grid">${items.map((r, i) => `
-    <article class="card" data-card="${r.content_id}">
+    <article class="card" data-card="${r.content_id}" data-detail="${r.content_id}">
       <div class="ph">${photo(r)}<span class="rank">${i + 1}</span>${heartBtn(r)}</div>
       <div class="body">
-        <div class="tags">${badges(r)}</div>
-        <h3>${esc(r.title)}</h3>
+        <div class="tags">${badges(r, hide)}</div>
+        <h3><button type="button" data-detail="${r.content_id}">${esc(r.title)}</button></h3>
         <div class="addr">${esc(shortAddr(r.addr))}</div>
-        <p class="snip">${esc(r.snippet)}</p>
+        <p class="snip">${esc(firstSentence(r.snippet))}</p>
         <div class="actions">
-          <button class="btn" data-detail="${r.content_id}">자세히</button>
-          <button class="btn primary" data-course="${r.content_id}">여기서 반나절 코스</button>
+          <button class="btn course" data-course="${r.content_id}">여기서 반나절 코스</button>
         </div>
       </div>
     </article>`).join("")}</div>${outsideList(d)}

@@ -18,7 +18,7 @@ from ingest.bizrouter import embed, rerank, to_pgvector
 from ingest.config import EMBED_MODEL
 
 from .extract import extract
-from .vocab import content_tokens, judge, search_text
+from .vocab import content_tokens, judge, search_text, stems
 from .hours import parse as parse_hours
 
 # 서비스 화면에서 리랭크를 기다리는 최대 시간(초). 넘으면 벡터 순서로 보여준다.
@@ -38,6 +38,9 @@ STOP = {
     "데리고", "가지고", "다니는", "즐기는", "먹는", "보는", "놀만한", "지내는", "쉬는",
     "곳", "장소", "데", "추천", "때", "날", "정도", "느낌", "분위기", "여기", "거기",
     "가능한", "괜찮", "어디", "무엇", "뭐", "좀", "같은", "위한", "위해",
+    # 무엇을 하러 가는지만 말하는 동사. 안 털면 '맥주 마시기' 의 '마시기' 가 "커피 마시기 좋은" 카페를 끌어온다
+    "마시기", "마실", "마시는", "마시러", "먹기", "먹을", "먹으러", "즐기기", "즐길", "즐기러",
+    "보기", "보면서", "보러", "가기", "가볼", "가보기", "놀기", "놀러", "쉬기", "쉬러",
 }
 
 
@@ -369,6 +372,50 @@ def has_any(conn, words):
     return bool(r["ok"])
 
 
+# 질문 속 '드문 낱말' (전체 장소의 2% 미만에만 나오는 말: 맥주·억새·야경 …)
+# 의미 검색은 '마시기 좋은 곳' 같은 분위기에 끌려 이런 낱말을 놓칠 때가 있다 ('맥주 마시기 좋은 곳' → 카페만).
+# 그럴 때만, 그 낱말이 들어간 곳을 결과의 절반까지 2·4·6… 번째 자리에 끼워 넣는다.
+RARE_DF = 0.02
+_N = {"t": 0, "n": 0}
+
+
+def doc_count(conn, words):
+    """그 말들 중 하나라도 이름·소개글에 나오는 장소 수."""
+    pats = ["%" + w + "%" for w in words]
+    return conn.execute("""SELECT count(*) AS n FROM places
+                           WHERE title ILIKE ANY(%(p)s) OR coalesce(overview,'') ILIKE ANY(%(p)s)""",
+                        {"p": pats}).fetchone()["n"]
+
+
+def total_places(conn):
+    if time.time() - _N["t"] > 3600:
+        _N.update(t=time.time(), n=conn.execute("SELECT count(*) AS n FROM places").fetchone()["n"])
+    return _N["n"]
+
+
+def promote_rare(conn, items, rare, filters, limit):
+    if not rare or not items:
+        return items
+    kw = keyword_search(conn, " ".join(rare), limit, filters)
+    if not kw:
+        return items
+    has = {it["content_id"] for it in kw}
+    top = items[:limit]
+    need = limit // 2 - sum(1 for it in top if it["content_id"] in has)
+    if need <= 0:
+        return items
+    shown = {it["content_id"] for it in top}
+    extra = [dict(it, via="키워드(드문 낱말)", _text=f"{it['title']} {it.get('snippet') or ''}")
+             for it in kw if it["content_id"] not in shown][:need]
+    out, pos = list(top), 1
+    for it in extra:
+        out.insert(min(pos, len(out)), it)
+        pos += 2
+    out = out[:limit]
+    keep = {it["content_id"] for it in out}
+    return out + [it for it in items if it["content_id"] not in keep]
+
+
 def find(conn, q, limit=12, pool=30, overrides=None, use_rerank=True, near=None, hybrid=True, off=()):
     """서비스 화면용: 조건 필터 + 벡터 + 리랭커 한 줄. 비교용 대조군(키워드)은 돌리지 않는다.
 
@@ -394,6 +441,9 @@ def find(conn, q, limit=12, pool=30, overrides=None, use_rerank=True, near=None,
         cand, filters, dropped = hybrid_candidates(conn, qs, pool, filters)
     else:
         cand, filters, dropped = filtered_candidates(conn, qs, pool, filters)
+    n = total_places(conn)
+    rare = [t for t in ct if t not in vc["unknown"] and 0 < doc_count(conn, stems(t)) < RARE_DF * n]
+    cand = promote_rare(conn, cand, rare, filters, limit)
     # 반려동물·무장애 조건은 맞는 곳이 적으면 풀린다(SOFT_FILTERS). 풀렸더라도 맞는 곳은 앞으로 올린다
     boost = [f for f, col in (("pet", "pet_allowed"), ("access", "access_listed")) if f in dropped]
     if boost:
