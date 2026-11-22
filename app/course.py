@@ -224,7 +224,12 @@ def ask_model(conn, anchor, cands):
         "slots": {SLOTS[s.rstrip("0123456789")][0] + (s[-1] if s[-1].isdigit() else ""):
                   [_brief(p, anchor) for p in ps] for s, ps in cands.items() if ps},
     }
-    text = chat(conn, [{"role": "system", "content": PROMPT},
+    # 고를 개수와 칸 이름을 숫자로 못 박는다. 없으면 로컬 모델(qwen3.5·gemma4)이 볼거리를 2~3곳 고른다.
+    # llm-compare/compare_course.py 출발지 12곳: 규칙 통과 qwen3.5 2→12, gemma4 6→12, gemini 12→11(나머지 1건은 응답 끊김)
+    names = list(payload["slots"])
+    system = PROMPT + (f"\n\n이번 입력의 칸은 {len(names)}개({', '.join(names)})다. "
+                       f"stops 는 정확히 {len(names)}개이고, 칸마다 1곳씩이다. 같은 칸에서 두 곳을 고르면 안 된다.")
+    text = chat(conn, [{"role": "system", "content": system},
                        {"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
                 temperature=0.3, post_kw=dict(timeout=LLM_TIMEOUT, retries=1, wait_429=False))
     return parse_json(text), text
