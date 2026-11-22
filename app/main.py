@@ -388,10 +388,13 @@ def admin_stats(days: int = Query(7, ge=1, le=60), x_admin_token: str | None = H
                       FROM feedback WHERE ts > now() - %s::interval
                       GROUP BY q HAVING count(*) FILTER (WHERE vote = -1) > 0
                       ORDER BY down DESC, up LIMIT 15""", iv)
-        crowd = q("""SELECT count(DISTINCT content_id) linked, count(DISTINCT name) names,
+        # count(DISTINCT …) 는 22만 행을 한글 정렬해서 34초가 걸렸다 → 묶어서(GROUP BY, 해시) 센다
+        crowd = q("""SELECT (SELECT count(*) FROM (SELECT content_id FROM crowd_forecast
+                                                   WHERE content_id IS NOT NULL GROUP BY content_id) a) linked,
+                            (SELECT count(*) FROM (SELECT name FROM crowd_forecast
+                                                   WHERE name IS NOT NULL GROUP BY name) b) names,
                             (SELECT count(*) FROM crowd_lists) sgg,
-                            (SELECT count(*) FROM places WHERE ldong_sgg IS NOT NULL) coded
-                     FROM crowd_forecast""")[0]
+                            (SELECT count(*) FROM places WHERE ldong_sgg IS NOT NULL) coded""")[0]
     for a in areas:
         a["name"] = AREA_NAME.get(a["area_code"], str(a["area_code"]))
     return {"days": days, "daily": daily, "top": top, "zero": zero, "recent": recent,
