@@ -169,6 +169,12 @@ body.has-result .chips{display:none}
 .noimg{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
   background:var(--kb);color:var(--k);font-size:12.5px;font-weight:650;letter-spacing:-.01em}
 .noimg svg{width:34%;max-width:52px;height:auto;opacity:.9}
+.noimg svg.scene{position:absolute;inset:0;width:100%;height:100%;max-width:none;opacity:1;color:var(--k)}
+.noimg.has-scene{background:linear-gradient(180deg,var(--kb) 0%,color-mix(in srgb,var(--kb) 70%,#fff) 100%)}
+.noimg.has-scene span{position:absolute;left:12px;bottom:10px;z-index:1;padding:2px 9px;border-radius:999px;
+  background:rgba(255,255,255,.78);color:var(--k);font-size:12px}
+@media (prefers-color-scheme:dark){.noimg.has-scene{background:linear-gradient(180deg,var(--kb),color-mix(in srgb,var(--kb) 80%,#000))}
+  .noimg.has-scene span{background:rgba(0,0,0,.4)}}
 .noimg::after{content:"";position:absolute;inset:0;pointer-events:none;
   background:radial-gradient(circle at 80% 15%,rgba(255,255,255,.35),transparent 55%)}
 .thumb .noimg span,.stop .noimg span{display:none}
@@ -1450,6 +1456,43 @@ const ICON = {
   food:    '<path d="M7 3v7a2 2 0 0 0 2 2M11 3v7a2 2 0 0 1-2 2v9M17 21V3c-2 1-3 4-3 7s1 4 3 4"/>',
   cafe:    '<path d="M4 9h13v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17M8 3v3M12 3v3"/>',
 };
+const SCENE = {
+  sight: `<circle cx="246" cy="50" r="22" opacity=".22"/><ellipse cx="96" cy="44" rx="26" ry="8" opacity=".12"/>
+    <path d="M0 130 58 76l46 40 56-58 62 66 46-34 52 38v52H0z" opacity=".16"/>
+    <path d="M0 150 70 104l54 36 66-46 60 52 70-30v64H0z" opacity=".3"/>
+    <path d="M0 166q80-28 160-6t160-6v26H0z" opacity=".5"/>`,
+  culture: `<circle cx="66" cy="46" r="17" opacity=".16"/>
+    <path d="M70 92q90-30 180 0-8 7-22 7H92q-14 0-22-7z" opacity=".6"/>
+    <path d="M100 99h120v44H100z" opacity=".2"/>
+    <path d="M110 99h9v44h-9zM201 99h9v44h-9z" opacity=".45"/><path d="M146 112h28v31h-28z" opacity=".38"/>
+    <path d="M0 143h320v37H0z" opacity=".28"/><path d="M40 143h240v6H40z" opacity=".4"/>`,
+  fest: `<path d="M-10 34q90 52 170 18t170-6" fill="none" stroke="currentColor" stroke-width="2" opacity=".35"/>
+    <g opacity=".55"><ellipse cx="46" cy="62" rx="13" ry="16"/><ellipse cx="160" cy="66" rx="13" ry="16"/><ellipse cx="272" cy="50" rx="13" ry="16"/></g>
+    <g opacity=".32"><ellipse cx="103" cy="72" rx="12" ry="15"/><ellipse cx="216" cy="62" rx="12" ry="15"/></g>
+    <g opacity=".3"><rect x="70" y="112" width="6" height="6" rx="1" transform="rotate(20 73 115)"/><rect x="190" y="104" width="6" height="6" rx="1" transform="rotate(-25 193 107)"/>
+      <rect x="250" y="122" width="5" height="5" rx="1"/><rect x="128" y="126" width="5" height="5" rx="1" transform="rotate(40 130 128)"/></g>
+    <path d="M0 158q80-22 160-2t160-4v28H0z" opacity=".4"/>`,
+  leports: `<circle cx="72" cy="52" r="20" opacity=".2"/>
+    <path d="M196 70l26 46h-44z" opacity=".45"/><path d="M168 118h64l-8 10h-48z" opacity=".55"/>
+    <path d="M0 132q20-10 40 0t40 0 40 0 40 0 40 0 40 0 40 0 40 0v48H0z" opacity=".22"/>
+    <path d="M0 150q20-10 40 0t40 0 40 0 40 0 40 0 40 0 40 0 40 0v30H0z" opacity=".36"/>
+    <path d="M0 166q20-8 40 0t40 0 40 0 40 0 40 0 40 0 40 0 40 0v14H0z" opacity=".52"/>`,
+  food: `<path d="M0 138h320v42H0z" opacity=".16"/>
+    <path d="M110 104h100q-4 38-50 38t-50-38z" opacity=".55"/><path d="M104 100h112v6H104z" opacity=".4"/>
+    <path d="M140 92q-8-10 0-20t0-20M162 92q-8-10 0-20t0-20M184 92q-8-10 0-20t0-20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity=".28"/>
+    <path d="M232 70l26 70M244 66l22 74" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity=".4"/>`,
+  cafe: `<path d="M40 30h80v70H40zM132 30h80v70h-80z" opacity=".1"/>
+    <path d="M118 96h76v22q0 24-38 24t-38-24z" opacity=".55"/>
+    <path d="M194 104h8a12 12 0 0 1 0 24h-8" fill="none" stroke="currentColor" stroke-width="5" opacity=".55"/>
+    <ellipse cx="160" cy="146" rx="62" ry="8" opacity=".35"/>
+    <path d="M146 86q-8-10 0-18t0-18M170 86q-8-10 0-18t0-18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity=".3"/>
+    <path d="M0 154h320v26H0z" opacity=".18"/>`,
+};
+function scene(k, id){
+  // 같은 종류가 줄지어 있어도 똑같아 보이지 않게, 장소 번호로 좌우를 뒤집는다 (번호를 섞어서 연속 번호도 갈리게)
+  const flip = (Math.imul(Number(id) || 0, 2654435761) >>> 0) & 2 ? ' transform="matrix(-1 0 0 1 320 0)"' : "";
+  return `<svg class="scene" viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g fill="currentColor"${flip}>${SCENE[k]}</g></svg>`;
+}
 const KIND_LABEL = {sight: "볼거리", culture: "문화시설", fest: "축제·행사", leports: "레포츠", food: "음식점", cafe: "카페"};
 const TYPE_BY_NAME = {"관광지": 12, "문화시설": 14, "축제공연행사": 15, "레포츠": 28, "음식점": 39};
 function kindOf(r){
@@ -1460,7 +1503,7 @@ function kindOf(r){
 }
 function photo(r){
   const k = kindOf(r);
-  const ph = `<div class="noimg k-${k}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg><span>${KIND_LABEL[k]}</span></div>`;
+  const ph = `<div class="noimg has-scene k-${k}">${scene(k, r.content_id)}<span>${KIND_LABEL[k]}</span></div>`;
   return ph + (r.image ? `<img src="${esc(https(r.image))}" alt="" loading="lazy" onerror="this.remove()">` : "");
 }
 

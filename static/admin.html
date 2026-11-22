@@ -58,12 +58,21 @@ function login(msg){
   $("#lf").onsubmit = e => { e.preventDefault(); token = $("#tk").value.trim(); try { sessionStorage.setItem("admtok", token); } catch {} load(); };
 }
 
+// 불러오는 동안·실패했을 때 화면이 비지 않게 (예전에는 오류가 나면 빈 화면으로 멈췄다)
 async function load(days = 7){
   if (!token) return login();
-  const r = await fetch(`/api/admin/stats?days=${days}`, {headers: {"X-Admin-Token": token}});
+  $("#app").innerHTML = `<p class="muted" style="margin:12vh 0;text-align:center">통계를 불러오는 중…</p>`;
+  let r;
+  try {
+    r = await fetch(`/api/admin/stats?days=${days}`, {headers: {"X-Admin-Token": token}, signal: AbortSignal.timeout(25000)});
+  } catch (e) {
+    return login(e.name === "TimeoutError" ? "25초 안에 서버가 답하지 않았어요." : `서버에 닿지 못했어요: ${e.message}`);
+  }
   if (r.status === 401){ try { sessionStorage.removeItem("admtok"); } catch {} return login("토큰이 맞지 않아요."); }
-  if (!r.ok) return login(`불러오지 못했어요 (${r.status})`);
-  render(await r.json());
+  if (r.status === 404) return login("관리 화면이 꺼져 있어요. 서버 .env 에 ADMIN_TOKEN 을 넣고 다시 띄워 주세요.");
+  if (!r.ok) return login(`불러오지 못했어요 (${r.status}). docker compose logs api 에서 오류를 확인하세요.`);
+  try { render(await r.json()); }
+  catch (e) { console.error(e); login(`화면을 그리다 멈췄어요: ${e.message}`); }
 }
 
 function render(d){
