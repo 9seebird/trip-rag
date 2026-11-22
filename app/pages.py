@@ -211,6 +211,8 @@ footer{border-top:1px solid var(--line);margin-top:40px;padding:22px 0 40px;font
 footer nav{display:flex;flex-wrap:wrap;gap:4px 14px;margin-bottom:8px}footer nav a{color:var(--ink-2);text-decoration:none;font-weight:600}
 """
 
+# Google Analytics — trendkit.app 의 다른 도구들과 같은 ID 하나로 모으고, 보고서에서 호스트 이름(trip.trendkit.app)으로 나눠 본다.
+GA = '<script async src="https://www.googletagmanager.com/gtag/js?id=G-J0SPX7FT4J"></script>\n<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag(\'js\',new Date());gtag(\'config\',\'G-J0SPX7FT4J\');</script>\n'
 # 주의: 광고 칸 id 를 "adfit" 로 두면 window.adfit(애드핏 SDK 이름)과 겹쳐 SDK 가 광고를 부르지 않는다.
 # 카카오 애드핏 (매체: 여행사이트). 광고 칸은 HTML 에 PC 단위로 두고(심사가 설치를 알아보게),
 # 폰이면 애드핏 스크립트를 불러오기 전에 모바일 단위로 바꾼다. 심사 중에도 칸을 접지 않는다.
@@ -240,7 +242,7 @@ def page(title, desc, path, body, *, jsonld=None, image=None, nav=None, noindex=
              ("/theme", "테마 여행", "theme"), ("/", "말로 찾기", "home")]
     navh = "".join(f'<a href="{h}" class="{k} {"on" if k == nav else ""}">{t}</a>' for h, t, k in links)
     return f"""<!doctype html><html lang="ko"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+{GA}<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{e(title)} | 반나절</title><meta name="description" content="{e(desc)}">
 <link rel="canonical" href="{url}">{'<meta name="robots" content="noindex">' if noindex else ''}
 <meta property="og:title" content="{e(title)}"><meta property="og:description" content="{e(desc)}">
